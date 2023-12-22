@@ -153,7 +153,7 @@ class LLMMistral(LLM):
         "no-pricing": { "pricing": {"prompt_tokens": 0, "completion_tokens": 0}}
     }
 
-    def __init__(self, api_key=os.environ["MISTRAL_API_KEY"]):
+    def __init__(self, api_key=os.getenv("MISTRAL_API_KEY")):
         super().__init__()  # Call the parent class's __init__ method
 
         self.api_key = api_key
@@ -168,6 +168,7 @@ class LLMMistral(LLM):
         log("info", self, f"""START""")
         log("info", self, f"""INPUT: llm_params: {llm_params_copy}""")
         log("info", self, f"""INPUT: messages: {json.dumps(messages,indent=4)}""")
+        log("info", self, f"""INPUT: api_key passed: {bool(self.api_key)}""")
 
         # checking of there the last message is from the user (Mistral LLM requirement)
         if messages[-1]["role"] != "user":
@@ -186,15 +187,21 @@ class LLMMistral(LLM):
         llm_responses_all = { "choices": [], "usage": { "prompt_tokens": 0, "completion_tokens": 0, "generation_time": 0 } }
         for i in range(reps):
 
-            log("info", self, f"""rep {i+1}/{reps}""")
+            log("info", self, f"""rep {i+1}/{reps}...""")
 
             llm_response = None
             llm_generation_time = 0
 
+            log("info", self, f"""ACTUALLY BEING SENT TO THE MODEL:""")
+            log("info", self, f"""llm_params: {llm_params_copy}""")
+            log("info", self, f"""messages: {messages}""")
+
+
             try:
                 start_time = time.time()
+
                 llm_response = self.client.chat(
-                    model=llm_params_copy["model"],
+                    **llm_params_copy,
                     messages=messages
                 )
                 end_time = time.time()
@@ -211,7 +218,7 @@ class LLMMistral(LLM):
             llm_responses_all["choices"].append(llm_response["choices"][0])
 
             llm_responses_all["usage"]["prompt_tokens"] = llm_responses_all["usage"].get("prompt_tokens") or llm_response["usage"]["prompt_tokens"]
-            llm_responses_all["usage"]["completion_tokens"] += llm_responses_all["usage"]["completion_tokens"]
+            llm_responses_all["usage"]["completion_tokens"] += llm_response["usage"]["completion_tokens"]
             llm_responses_all["usage"]["generation_time"] += llm_generation_time
 
 
@@ -240,7 +247,7 @@ class LLMOpenAI(LLM):
     }
 
 
-    def __init__(self, api_key=os.environ["OPENAI_API_KEY"]):
+    def __init__(self, api_key=os.getenv("OPENAI_API_KEY")):
         super().__init__()  # Call the parent class's __init__ method
         self.api_key = api_key
         self.client = OpenAI(api_key=self.api_key)
