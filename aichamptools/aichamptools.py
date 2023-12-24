@@ -189,15 +189,15 @@ class LLMMistral(LLM):
 
     def __init__(self, api_key=os.getenv("MISTRAL_API_KEY"), log_on=True):
 
-        print(f"({self}) 0 TMP log_on: {log_on}")
+        # print(f"({self}) 0 TMP log_on: {log_on}")
 
         super().__init__()
 
-        print(f"({self}) 1 TMP log_on: {log_on}, self.log_on: {self.log_on}")
+        # print(f"({self}) 1 TMP log_on: {log_on}, self.log_on: {self.log_on}")
 
         self.log_on = log_on if log_on is not None else self.log_on
 
-        print(f"({self}) 2 TMP log_on: {log_on}, self.log_on: {self.log_on}")
+        # print(f"({self}) 2 TMP log_on: {log_on}, self.log_on: {self.log_on}")
 
         self.api_key = api_key
         self.client = MistralClient(api_key=self.api_key)
@@ -292,15 +292,15 @@ class LLMOpenAI(LLM):
 
     def __init__(self, api_key=os.getenv("OPENAI_API_KEY"), log_on=True):
 
-        print(f"({self}) 0 TMP log_on: {log_on}")
+        # print(f"({self}) 0 TMP log_on: {log_on}")
 
         super().__init__()
 
-        print(f"({self}) 1 TMP log_on: {log_on}, self.log_on: {self.log_on}")
+        # print(f"({self}) 1 TMP log_on: {log_on}, self.log_on: {self.log_on}")
 
         self.log_on = log_on if log_on is not None else self.log_on
 
-        print(f"({self}) 2 TMP log_on: {log_on}, self.log_on: {self.log_on}")
+        # print(f"({self}) 2 TMP log_on: {log_on}, self.log_on: {self.log_on}")
 
         self.api_key = api_key
         self.client = OpenAI(api_key=self.api_key)
