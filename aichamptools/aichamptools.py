@@ -27,60 +27,71 @@ from typing import Any, Dict, Optional, Tuple, ForwardRef, List, Union
 from enum import Enum
 from pydantic import BaseModel, Field
 
-
-
-
 import logging
 import inspect
 
 
-# Create a logger for step-by-step logs
-sbs_logger = logging.getLogger('step_by_step')
-sbs_logger.setLevel(logging.INFO)  # Or whatever level you want
-
-# Remove all handlers associated with the logger object.
-for handler in sbs_logger.handlers[:]:
-    sbs_logger.removeHandler(handler)
-
-# Create a file handler
-sbs_handler = logging.FileHandler(f'step_by_step.log')
-sbs_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
-sbs_logger.addHandler(sbs_handler)
-
-def log(level, class_instance, message, user_id=None):
-    current_frame = inspect.currentframe()
-    frame_info = inspect.getframeinfo(current_frame.f_back)
-    
-    file_name = os.path.basename(frame_info.filename)  # Get only the base filename, not the full path
-    line_number = frame_info.lineno
-    class_name = class_instance.__class__.__name__
-    func_name = current_frame.f_back.f_code.co_name
-
-    # Check if the logging level is valid
-    if level not in ['debug', 'info', 'warning', 'error', 'critical']:
-        level = 'info'
-
-    log_func = getattr(sbs_logger, level)
-    log_message = f'{file_name}:{line_number} - {class_name} - {func_name} - {message}'
-
-    # Add user ID to the log message if it's provided
-    if user_id is not None:
-        log_message += f' - user {user_id}'
-
-    log_func(log_message)
-
-
 
 class AIChampTools():
-    def __init__(self):
-        print(self)
+
+    def __init__(self, logs_folder="aichamptools_logs/"):
+        self.__version__ = '0.0.23'
+        self.logs_folder = logs_folder
+
+        # setting up logging
+
+        # Check if logs_folder exists and create it if it doesn't
+        if not os.path.exists(self.logs_folder):
+            os.makedirs(self.logs_folder)
+
+        # Create a logger for step-by-step logs
+        self.sbs_logger = logging.getLogger('step_by_step')
+        self.sbs_logger.setLevel(logging.INFO)  # Or whatever level you want
+
+        # Remove all handlers associated with the logger object.
+        for handler in self.sbs_logger.handlers[:]:
+            self.sbs_logger.removeHandler(handler)
+
+        # Create a file handler
+        sbs_handler = logging.FileHandler(f'{self.logs_folder}step_by_step.log')
+        sbs_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
+        self.sbs_logger.addHandler(sbs_handler)
+
+
+    def log(self, level, class_instance, message, user_id=None):
+        current_frame = inspect.currentframe()
+        frame_info = inspect.getframeinfo(current_frame.f_back)
+        
+        file_name = os.path.basename(frame_info.filename)  # Get only the base filename, not the full path
+        line_number = frame_info.lineno
+        class_name = class_instance.__class__.__name__
+        func_name = current_frame.f_back.f_code.co_name
+
+        # Check if the logging level is valid
+        if level not in ['debug', 'info', 'warning', 'error', 'critical']:
+            level = 'info'
+
+        log_func = getattr(self.sbs_logger, level)
+        log_message = f'{file_name}:{line_number} - {class_name} - {func_name} - {message}'
+
+        # Add user ID to the log message if it's provided
+        if user_id is not None:
+            log_message += f' - user {user_id}'
+
+        log_func(log_message)
 
 
 
 
-class LLMUsage():
+
+
+
+class LLMUsage(AIChampTools):
 
     def __init__(self, expected_prompt_tokens:int=0, prompt_tokens:int=0, expected_completion_tokens:int=0, completion_tokens:int=0, expected_total_tokens:int=0, total_tokens:int=0, expected_total_cost:float=0.0, total_cost:float=0.0, generation_time:float=0.0):
+
+        super().__init__()
+
         # Expected number of prompt tokens
         self.expected_prompt_tokens = expected_prompt_tokens
         # Prompt tokens number received from LLM
@@ -92,6 +103,7 @@ class LLMUsage():
         self.expected_total_cost = expected_total_cost
         self.total_cost = total_cost
         self.generation_time = generation_time
+
 
     def __add__(self, other):
         if isinstance(other, LLMUsage):
@@ -110,20 +122,34 @@ class LLMUsage():
             raise TypeError("Unsupported operand type. Both operands should be instances of LLMUsage.")
 
 
+    @property
+    def __dict__(self):
+        return {
+            "prompt_tokens": self.prompt_tokens,
+            "completion_tokens": self.completion_tokens,
+            "total_tokens": self.total_tokens,
+            "total_cost": self.total_cost,
+            "generation_time": self.generation_time
+        }
 
-class LLM():
+
+
+class LLM(AIChampTools):
 
     models = {}
 
     def __init__(self):
+
+        super().__init__()
+
         # a flag if the LLM requires a user message to get completion (for example, in OpenAI you can send only system message, but Mistral will throw an error if you do so with a user's message)
         self.requires_user_message = False
 
     def execution_cost(self, model:str, llm_usage:LLMUsage) -> float:
 
-        sbs_logger.info(f"START")
-        sbs_logger.info(f"model: {model}")
-        sbs_logger.info(f"llm_usage: {llm_usage}")
+        self.sbs_logger.info(f"START")
+        self.sbs_logger.info(f"model: {model}")
+        self.sbs_logger.info(f"llm_usage: {llm_usage}")
 
         if model in self.models:
             pricing = self.models[model]["pricing"]
@@ -140,6 +166,7 @@ class LLM():
 from mistralai.client import MistralClient
 from mistralai.models.chat_completion import ChatMessage
 
+
 class LLMMistral(LLM):
 
     vendor="MistralAI"
@@ -154,7 +181,8 @@ class LLMMistral(LLM):
     }
 
     def __init__(self, api_key=os.getenv("MISTRAL_API_KEY")):
-        super().__init__()  # Call the parent class's __init__ method
+        
+        super().__init__()
 
         self.api_key = api_key
         self.client = MistralClient(api_key=self.api_key)
@@ -165,10 +193,10 @@ class LLMMistral(LLM):
 
         llm_params_copy = copy.deepcopy(llm_params)
 
-        log("info", self, f"""START""")
-        log("info", self, f"""INPUT: llm_params: {llm_params_copy}""")
-        log("info", self, f"""INPUT: messages: {json.dumps(messages,indent=4)}""")
-        log("info", self, f"""INPUT: api_key passed: {bool(self.api_key)}""")
+        self.log("info", self, f"""START""")
+        self.log("info", self, f"""INPUT: llm_params: {llm_params_copy}""")
+        self.log("info", self, f"""INPUT: messages: {json.dumps(messages,indent=4)}""")
+        self.log("info", self, f"""INPUT: api_key passed: {bool(self.api_key)}""")
 
         # checking of there the last message is from the user (Mistral LLM requirement)
         if messages[-1]["role"] != "user":
@@ -179,7 +207,7 @@ class LLMMistral(LLM):
                 ChatMessage(role=m["role"], content=m["content"]) for m in messages
             ]
         except Exception as e:
-            log("error", self, f"""Couldn't convert to ChatMessage objects: {e}""")
+            self.log("error", self, f"""Couldn't convert to ChatMessage objects: {e}""")
 
 
         reps = llm_params_copy.pop("n", None) or 1
@@ -187,14 +215,14 @@ class LLMMistral(LLM):
         llm_responses_all = { "choices": [], "usage": { "prompt_tokens": 0, "completion_tokens": 0, "generation_time": 0 } }
         for i in range(reps):
 
-            log("info", self, f"""rep {i+1}/{reps}...""")
+            self.log("info", self, f"""rep {i+1}/{reps}...""")
 
             llm_response = None
             llm_generation_time = 0
 
-            log("info", self, f"""ACTUALLY BEING SENT TO THE MODEL:""")
-            log("info", self, f"""llm_params: {llm_params_copy}""")
-            log("info", self, f"""messages: {messages}""")
+            self.log("info", self, f"""ACTUALLY BEING SENT TO THE MODEL:""")
+            self.log("info", self, f"""llm_params: {llm_params_copy}""")
+            self.log("info", self, f"""messages: {messages}""")
 
 
             try:
@@ -207,11 +235,11 @@ class LLMMistral(LLM):
                 end_time = time.time()
                 llm_generation_time = end_time - start_time
             except Exception as e:
-                log("error", self, f"""Error while trying to generate a completion: {e}""")
+                self.log("error", self, f"""Error while trying to generate a completion: {e}""")
 
             llm_response = llm_response.model_dump()
 
-            log("info", self, f"""llm_response {i+1}/{reps}: {llm_response}""")
+            self.log("info", self, f"""llm_response {i+1}/{reps}: {llm_response}""")
 
             llm_response["usage"]["generation_time"] = llm_generation_time
 
@@ -222,7 +250,7 @@ class LLMMistral(LLM):
             llm_responses_all["usage"]["generation_time"] += llm_generation_time
 
 
-        log("info", self, f"""RETURNING: {json.dumps(llm_responses_all,indent=4,default=str)}""")
+        self.log("info", self, f"""RETURNING: {json.dumps(llm_responses_all,indent=4,default=str)}""")
 
         return llm_responses_all
 
@@ -248,16 +276,18 @@ class LLMOpenAI(LLM):
 
 
     def __init__(self, api_key=os.getenv("OPENAI_API_KEY")):
-        super().__init__()  # Call the parent class's __init__ method
+
+        super().__init__()
+
         self.api_key = api_key
         self.client = OpenAI(api_key=self.api_key)
 
 
     def create_completion(self, llm_params, messages):
 
-        log("info", self, f"""START""")
-        log("info", self, f"""INPUT: llm_params: {llm_params}""")
-        log("info", self, f"""INPUT: messages: {json.dumps(messages,indent=4)}""")
+        self.log("info", self, f"""START""")
+        self.log("info", self, f"""INPUT: llm_params: {llm_params}""")
+        self.log("info", self, f"""INPUT: messages: {json.dumps(messages,indent=4)}""")
 
         llm_response = None
         llm_generation_time = 0
@@ -270,13 +300,13 @@ class LLMOpenAI(LLM):
             end_time = time.time()
             llm_generation_time = end_time - start_time
         except Exception as e:
-            log("error", self, f"""Error while trying to generate a completion: {e}""")
+            self.log("error", self, f"""Error while trying to generate a completion: {e}""")
             
 
         llm_response = llm_response.model_dump()
         llm_response["usage"]["generation_time"] = llm_generation_time
 
-        log("info", self, f"""RETURNING: {json.dumps(llm_response,indent=4)}""")
+        self.log("info", self, f"""RETURNING: {json.dumps(llm_response,indent=4)}""")
 
         return llm_response
 
@@ -290,17 +320,18 @@ import fnmatch
 import ast
 import numpy as np
 
-from sqlalchemy import Column, Integer, String, DateTime, JSON, create_engine
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, JSON, create_engine
+from sqlalchemy.orm import sessionmaker, relationship
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.dialects.postgresql import JSONB
 
+
 Base = declarative_base()
 
-class PromptEngineeringExperimentsData(Base):
+class PromptEngineeringExperimentsDataTable(Base):
     __tablename__ = 'prompt_engineering_experiments_data'
 
-    id = Column(Integer, primary_key=True)  # Add this line
+    id = Column(Integer, primary_key=True)
     datetime_generated = Column(DateTime)
     exp_name = Column(String(255))
     exp_ver = Column(String(255))
@@ -312,22 +343,47 @@ class PromptEngineeringExperimentsData(Base):
     data = Column(JSONB)
     llm_usage = Column(JSONB)
 
-    def __init__(self, db_config):
-        db_config_str = f"""postgresql+psycopg2://{db_config["POSTGRES_USER"]}:{db_config["POSTGRES_PASSWORD"]}@{db_config["POSTGRES_HOST"]}:5432/{db_config["POSTGRES_DB"]}"""
+    assessments = relationship("PromptEngineeringExperimentsAssessmentsTable", back_populates="data")
 
-        self.engine = create_engine(db_config_str)
-        Session = sessionmaker(bind=self.engine)
-        self.session = Session()
+    # def __init__(self, db_config):
+    #     db_config_str = f"""postgresql+psycopg2://{db_config["POSTGRES_USER"]}:{db_config["POSTGRES_PASSWORD"]}@{db_config["POSTGRES_HOST"]}:5432/{db_config["POSTGRES_DB"]}"""
+
+    #     self.engine = create_engine(db_config_str)
+    #     Session = sessionmaker(bind=self.engine)
+    #     self.session = Session()
+
+class PromptEngineeringExperimentsAssessorsTable(Base):
+    __tablename__ = 'prompt_engineering_experiments_assessors'
+
+    id = Column(Integer, primary_key=True)
+    name = Column(String(255))
+    details = Column(JSONB)
+
+    assessments = relationship("PromptEngineeringExperimentsAssessmentsTable", back_populates="assessor")
+
+class PromptEngineeringExperimentsAssessmentsTable(Base):
+    __tablename__ = 'prompt_engineering_experiments_assessments'
+
+    id = Column(Integer, primary_key=True)
+    exp_datapoint_id = Column(Integer, ForeignKey('prompt_engineering_experiments_data.id'))
+    assessor_id = Column(Integer, ForeignKey('prompt_engineering_experiments_assessors.id'))
+    assessment = Column(JSONB)
+
+    data = relationship("PromptEngineeringExperimentsDataTable", back_populates="assessments")
+    assessor = relationship("PromptEngineeringExperimentsAssessorsTable", back_populates="assessments")
 
 
 
 
-class PromptEngineeringExperiment():
+class PromptEngineeringExperiment(AIChampTools):
 
     # "name": { "versions": { "v": { "message_templates": [] } } }
     experiments = {}
     
     def __init__(self, name, ver=None, message_templates=None, llm=None, llm_params=None, test_data=None, reports_folder="reports/", logs_folder="logs/", assessors=None, db_config=None):
+        
+        super().__init__()
+        
         self.name = name
         self.ver = ver
         self.message_templates = message_templates
@@ -339,7 +395,12 @@ class PromptEngineeringExperiment():
         self.llm = llm
         self.db_config = db_config
         if db_config:
-            self.db = PromptEngineeringExperimentsData(self.db_config)
+            db_config_str = f"""postgresql+psycopg2://{db_config["POSTGRES_USER"]}:{db_config["POSTGRES_PASSWORD"]}@{db_config["POSTGRES_HOST"]}:5432/{db_config["POSTGRES_DB"]}"""
+            engine = create_engine(db_config_str)
+            Session = sessionmaker(bind=engine)
+            self.db_session = Session()
+        else:
+            self.db_session = None
 
         self.experiments[self.name] = {
             "versions": {
@@ -352,7 +413,6 @@ class PromptEngineeringExperiment():
             ]
         }
 
-        # self.aicht = AIChampTools(logs_folder=logs_folder)
 
 
     def _obj2dict(self,obj):
@@ -365,7 +425,7 @@ class PromptEngineeringExperiment():
 
 
 
-    def save_results2(self, results, overwrite=False, ver=None):
+    def save_results_2db(self, results, overwrite=False, ver=None):
         results["exp_name"] = self.name
         results["exp_ver"] = ver or self.ver
 
@@ -375,16 +435,31 @@ class PromptEngineeringExperiment():
 
         results["llm_usage"] = results["llm_usage"].apply(lambda x: x.__dict__ if isinstance(x, LLMUsage) else x)
 
-        for column in [*json_columns, *list_columns, *assessor_columns]:
-            results[column] = results[column].apply(lambda x: json.dumps(x) if isinstance(x, (dict, list)) else x)
+        self.log("info",self,f"""results["llm_usage"] after converting LLMUsage->dict: {results["llm_usage"]}""")
 
-        # Create an instance of PromptEngineeringExperimentsData
-        results.to_sql('prompt_engineering_experiments_data', self.db.engine, if_exists='replace' if overwrite else 'append', index=False)
+        for column in [*json_columns, *list_columns, *assessor_columns]:
+            try:
+                self.log("info",self,f"""Serializing column {column}""")
+                results[column] = results[column].apply(lambda x: json.dumps(x) if isinstance(x, (dict, list)) else x)
+            except Exception as e:
+                self.log("error",self,f"""Failed to serialize column {column}: {e}""")
+                self.log("error",self,f"""DEBUG DATA: results['{column}'].dtype: {results[column].dtype}""")
+
+        data = results.to_dict('records')
+        self.db_session.bulk_insert_mappings(PromptEngineeringExperimentsDataTable, data)
+        self.db_session.commit()
 
         return results
 
+        # # Create an instance of PromptEngineeringExperimentsDataTable
+        # data = PromptEngineeringExperimentsDataTable(**row.to_dict())
+        # results.to_sql('prompt_engineering_experiments_data', self.db.engine, if_exists='replace' if overwrite else 'append', index=False)
 
-    def save_results(self, results, overwrite=False, ver=None):
+        # return results
+
+
+
+    def save_results_2file(self, results, overwrite=False, ver=None):
         ver = ver or self.ver
         filename = f"{self.reports_folder}experiment_{self.name}_v{ver}.csv"
 
@@ -413,7 +488,8 @@ class PromptEngineeringExperiment():
         return results
 
     
-    def load_results(self, ver=None, flatten=False, llm_params=None, deserialize=True, flatten_exclude=[], from_db=False):
+
+    def load_results(self, ver=None, flatten=False, llm_params=None, deserialize=True, flatten_exclude=[], from_db=True):
         """
         if no ver, we are loading from the current version
         
@@ -423,19 +499,14 @@ class PromptEngineeringExperiment():
         ver = ver or self.ver
 
         if from_db:
-            Session = sessionmaker(bind=self.db.engine)
-            session = Session()
-
-            log("info", self, f"""Trying to get data for {self.name}/{ver}""")
+            self.log("info", self, f"""Trying to get data for {self.name}/{ver}""")
 
             # Query the database
-            data = session.query(PromptEngineeringExperimentsData).filter(
-                PromptEngineeringExperimentsData.exp_name == self.name,
-                PromptEngineeringExperimentsData.exp_ver == ver
+            data = self.db_session.query(PromptEngineeringExperimentsDataTable).filter(
+                PromptEngineeringExperimentsDataTable.exp_name == self.name,
+                PromptEngineeringExperimentsDataTable.exp_ver == ver
             ).all()
-
-            # Close the Session
-            session.close()
+            self.db_session.close()
         
             data_df = pd.DataFrame([d.__dict__ for d in data])
 
@@ -463,57 +534,25 @@ class PromptEngineeringExperiment():
         return data_df
 
 
-        # # test_results = self.aicht.load_synth_data(report_filepath)#, flatten=True
-        # test_results.replace({np.nan: None}, inplace=True)
-
-        # test_results["data"] = test_results["data"].apply(json.loads)
-        # test_results["llm_params"] = test_results["llm_params"].apply(json.loads)
-        # test_results["llm_usage"] = test_results["llm_usage"].apply(json.loads)
-        # test_results["messages"] = test_results["messages"].apply(json.loads)
-        # test_results["messages_template"] = test_results["messages_template"].apply(json.loads)
-        # assessor_columns = []
-
-        
-        # for c in test_results.columns:
-        #     if "assessor." in c:
-        #         test_results[c] = test_results[c].apply(lambda x: json.loads(x) if pd.notnull(x) else x)
-        #         # # convert second level data into strings
-        #         # test_results[c] = test_results[c].apply(lambda x: {k: json.dumps(v) if isinstance(v, dict) else v for k, v in x.items()} if pd.notnull(x) else x)
-        #         assessor_columns.append(c)
-
-        # if flatten:
-        #     for column in ["data", "llm_params", "llm_usage", *assessor_columns]:
-        #         if column in flatten_exclude:
-        #             continue
-        #         if isinstance(test_results[column][0],str):
-        #             expanded = pd.json_normalize(test_results[column].apply(json.loads))
-        #         else:
-        #             expanded = pd.json_normalize(test_results[column])
-        #         expanded.columns = f"{column}." + expanded.columns
-        #         test_results = test_results.drop(columns=[column]).join(expanded)        
-        # # test_results["messages"] = test_results["messages"].apply(json.loads)
-
-        # return test_results    
-    
     
     def run(self, test_data, reps=1, ver=None, max_data_points=0, llm_params=None, assessors=None):
-        sbs_logger.info("START")
-        sbs_logger.info(f"llm_params: {llm_params}")
+        self.sbs_logger.info("START")
+        self.sbs_logger.info(f"llm_params: {llm_params}")
 
         llm_params = copy.deepcopy(llm_params) or copy.deepcopy(self.llm_params)
         llm_params = { **llm_params, "n": reps }
         # llm_params["timeout"] = llm_params.get("timeout") or 30
-        sbs_logger.info(f"llm_params after modif: {llm_params}")
+        self.sbs_logger.info(f"llm_params after modif: {llm_params}")
 
 
         message_templates = self.message_templates or [
             {"role": "system", "content": "Act as a fruit professional. Always respond in json format with the keys: fruit, color"},
             {"role": "user", "content": "Which color is a {fruit}?"}
         ]
-        sbs_logger.info(f"message_templates: {message_templates}")
+        self.sbs_logger.info(f"message_templates: {message_templates}")
 
 
-        sbs_logger.info(f"test_data: {test_data}")
+        self.sbs_logger.info(f"test_data: {test_data}")
 
 
         synth_data = []
@@ -524,11 +563,11 @@ class PromptEngineeringExperiment():
             # Generate synthetic data for each data point
             for i, dp in enumerate(test_data):
 
-                sbs_logger.info(f"DATAPOINT {i}: {dp}")
+                self.sbs_logger.info(f"DATAPOINT {i}: {dp}")
 
 
                 if max_data_points and data_points_processed>=max_data_points:
-                    sbs_logger.info(f"Maximum number of data points to process reached.")
+                    self.sbs_logger.info(f"Maximum number of data points to process reached.")
                     break
 
                 # Populate a copy of messages with the data point values
@@ -539,18 +578,18 @@ class PromptEngineeringExperiment():
                 llm_response = {}
 
 
-                sbs_logger.info(f"messages passed to AI: {json.dumps(messages_populated, indent=4)}")
+                self.sbs_logger.info(f"messages passed to AI: {json.dumps(messages_populated, indent=4)}")
 
 
                 llm_response = self.llm.create_completion(llm_params=llm_params, messages=messages_populated)
 
 
-                sbs_logger.info(f'How many choices? {llm_response["choices"]}')
+                self.sbs_logger.info(f'How many choices? {llm_response["choices"]}')
 
 
                 for j, choice in enumerate(llm_response["choices"]):
 
-                    sbs_logger.info(f"Data point {i+1}/{len(test_data)} (limit: {max_data_points}). Repetition {j+1}/{reps}")
+                    self.sbs_logger.info(f"Data point {i+1}/{len(test_data)} (limit: {max_data_points}). Repetition {j+1}/{reps}")
 
                     res = choice["message"]["content"]
 
@@ -583,7 +622,7 @@ class PromptEngineeringExperiment():
 
             for j, choice in enumerate(llm_response["choices"]):
 
-                sbs_logger.info(f"Repetition {j+1}/{reps}")
+                self.sbs_logger.info(f"Repetition {j+1}/{reps}")
 
                 res = choice["message"]["content"]
 
@@ -612,33 +651,36 @@ class PromptEngineeringExperiment():
                 })
 
 
-        sbs_logger.info(f"synth_data generated: {synth_data}")
+        self.sbs_logger.info(f"synth_data generated: {synth_data}")
 
 
         synth_data_df = pd.DataFrame(synth_data)
 
 
-        sbs_logger.info(f"assessors: {assessors}")
+        self.sbs_logger.info(f"assessors: {assessors}")
 
 
         if assessors:
             for assr in assessors:
-                sbs_logger.info(f"assessing using {assr}")
+                self.sbs_logger.info(f"assessing using {assr}")
 
                 assr["function"](synth_data_df, *assr["input"])
 
-        log("info", self, f"""1 Saving {len(synth_data_df)} results""")
+        self.log("info", self, f"""1 Saving {len(synth_data_df)} results""")
 
-        results = self.save_results2(synth_data_df)
+        if self.db_session:
+            results = self.save_results_2db(synth_data_df)
+        else:
+            results = self.save_results_2file(synth_data_df)
 
-        log("info", self, f"""2 Saving {len(results)} results""")
+        self.log("info", self, f"""2 Saving {len(results)} results""")
 
-        log("info", self, f"""Trying to get data for {self.name}/{ver}""")
+        self.log("info", self, f"""Trying to get data for {self.name}/{ver}""")
 
 
         return results
         
-        
+
 
     def init_ver(self,ver,message_templates,llm_params=None,assessors=None):
         # print(f"trying to add {ver} to self.experiments: {self.experiments}")
@@ -662,87 +704,127 @@ class PromptEngineeringExperiment():
         self.assessors = assessors or self.assessors
 
 
-    def assess(self,assessor,ver=None,in_chunks=0,max_entries=0):
+
+    def assess(self,assessor,ver=None,in_chunks=0,max_entries=0, from_db=True,debug_mode=False):
 
         ver = ver or self.ver
 
-        sbs_logger.info('START')
-        sbs_logger.info(f'ver: {ver}')
-        sbs_logger.info(f'assessor: {assessor}')
-        sbs_logger.info(f'max_entries: {max_entries}')
+        self.log("info", self, f"""START""")
+        self.log("info", self, f"""INPUT: ver: {ver}""")
+        self.log("info", self, f"""INPUT: assessor: {assessor}""")
+        self.log("info", self, f"""INPUT: in_chunks: {in_chunks}""")
+        self.log("info", self, f"""INPUT: max_entries: {max_entries}""")
 
-        synth_data_df = self.load_results(ver=ver)
-        sbs_logger.info(f'number of results to assess: {len(synth_data_df)}')
-
+        synth_data_df = self.load_results(ver=ver,from_db=from_db)
+        self.log("info", self, f"""Number of results to assess: {len(synth_data_df)}""")
 
         if not in_chunks:
             in_chunks = len(synth_data_df)
+        if debug_mode:
+            in_chunks = 1
         groups = synth_data_df.groupby(np.arange(len(synth_data_df)) // in_chunks)
-        sbs_logger.info(f'type(groups): {type(groups)}')
 
 
         for i, (group_name, chunk) in enumerate(groups):
-            sbs_logger.info(f'Assessing group {i+1}/{len(groups)}')
+            self.log("info", self, f"""Assessing group {i+1}/{len(groups)}""")
+            self.log("info", self, f"""assessor: {assessor}""")
 
             # Apply the function to the chunk
-            assessor["function"](chunk, *assessor["input"])
+            assessor_name, assessor_details = assessor["function"](chunk, *assessor["input"])
 
             # Add missing columns to synth_data_df
             missing_cols = set(chunk.columns) - set(synth_data_df.columns)
             for col in missing_cols:
                 synth_data_df[col] = np.nan
 
-            # Replace the corresponding chunk in synth_data_df
+
+            # Before replacing the chunk in synth_data_df, update the dtypes of the corresponding columns
+            for col in chunk.columns:
+                synth_data_df[col] = synth_data_df[col].astype(chunk[col].dtype)
+            # Now replace the corresponding chunk in synth_data_df
             synth_data_df.iloc[i*in_chunks:(i+1)*in_chunks] = chunk
-            self.save_results(results=synth_data_df, overwrite=True, ver=ver)
+
+
+            if from_db:
+                assessor = self.db_session.query(PromptEngineeringExperimentsAssessorsTable).filter_by(name=assessor_name).first()
+                if assessor:
+                    self.log("info", self, f"""An assessor with the name {assessor_name} already exists.""")
+                else:
+                    self.log("info", self, f"""Assessor '{assessor_name}' doesn't exist, creating an entry for it in the database.""")
+                    try:
+                        assessor = PromptEngineeringExperimentsAssessorsTable(name=assessor_name, details=assessor_details)
+                        self.db_session.add(assessor)
+                        self.db_session.commit()
+                    except Exception as e:
+                        self.log("error",self,f"""Failed to save new assessor entry in the db: {e}""")
+                        self.log("error",self,f"""DEBUG DATA: assessor_name: {assessor_name}""")
+                        self.log("error",self,f"""DEBUG DATA: assessor_name: {assessor_name}""")
+                    finally:
+                        self.db_session.close()  # Close the session
+
+                # Create and save assessments
+                for index, row in chunk.iterrows():
+                    assessment = PromptEngineeringExperimentsAssessmentsTable(
+                        exp_datapoint_id=row['id'],
+                        assessor_id=assessor.id,
+                        assessment=row[f'assessor.{assessor_name}']  # replace 'assessment' with the actual column name for the assessment
+                    )
+                    self.db_session.add(assessment)
+                    self.db_session.commit()
+
+            else:
+                self.save_results_2file(results=synth_data_df, overwrite=True, ver=ver)
+            
+            if debug_mode:
+                break
   
 
 
     
-    # deprecated
-    def deprecated_assess(self,assessor,ver=None,max_entries=0):
+    # # deprecated
+    # def deprecated_assess(self,assessor,ver=None,max_entries=0):
 
-        ver = ver or self.ver
-        test_results = self.load_results(ver=ver)
-        report_filepath = f"{self.reports_folder}experiment_{self.name}_v{ver}.csv"
+    #     ver = ver or self.ver
+    #     test_results = self.load_results(ver=ver)
+    #     report_filepath = f"{self.reports_folder}experiment_{self.name}_v{ver}.csv"
 
 
-        assessor_column_name = f"assessor.{assessor['function'].__name__}"
+    #     assessor_column_name = f"assessor.{assessor['function'].__name__}"
 
-        test_results_dict = test_results.to_dict('records')
-        assessor_input_0l_values = []
-        for kl in assessor["input_0level"]:
-            value = reduce(operator.getitem, kl, test_results_dict)
-            assessor_input_0l_values.append(value)
-            print(f"input_0level: {kl} -> {value}")
+    #     test_results_dict = test_results.to_dict('records')
+    #     assessor_input_0l_values = []
+    #     for kl in assessor["input_0level"]:
+    #         value = reduce(operator.getitem, kl, test_results_dict)
+    #         assessor_input_0l_values.append(value)
+    #         print(f"input_0level: {kl} -> {value}")
 
-        j = 0
-        for i,row in test_results.iterrows():
-            if max_entries and j>= max_entries:
-                break
-            if not assessor_column_name in test_results.columns:
-                test_results[assessor_column_name] = None
-            # print(f"anything here? '{test_results.at[i, assessor_column_name]}'")            
-            if test_results.at[i, assessor_column_name]:
-                # print(f"skipping")
-                continue
+    #     j = 0
+    #     for i,row in test_results.iterrows():
+    #         if max_entries and j>= max_entries:
+    #             break
+    #         if not assessor_column_name in test_results.columns:
+    #             test_results[assessor_column_name] = None
+    #         # print(f"anything here? '{test_results.at[i, assessor_column_name]}'")            
+    #         if test_results.at[i, assessor_column_name]:
+    #             # print(f"skipping")
+    #             continue
             
-            assessor_input_values = []
-            for kl in assessor["input"]:
-                # print(f"kl: {kl}")
-                value = reduce(operator.getitem, kl, row)
-                # print(f"value ({type(value)}): {value}")
-                assessor_input_values.append(value)
+    #         assessor_input_values = []
+    #         for kl in assessor["input"]:
+    #             # print(f"kl: {kl}")
+    #             value = reduce(operator.getitem, kl, row)
+    #             # print(f"value ({type(value)}): {value}")
+    #             assessor_input_values.append(value)
             
-            assessment = assessor["function"](*assessor_input_values, *assessor_input_0l_values, *assessor["input2"])
-            # print(f"{i} ({type(assessment)}): {assessment}")
+    #         assessment = assessor["function"](*assessor_input_values, *assessor_input_0l_values, *assessor["input2"])
+    #         # print(f"{i} ({type(assessment)}): {assessment}")
 
-            # Add the assessment to the column
-            test_results.at[i, assessor_column_name] = assessment
+    #         # Add the assessment to the column
+    #         test_results.at[i, assessor_column_name] = assessment
 
-            j += 1
+    #         j += 1
         
-        self.save_results(results=test_results, overwrite=True, ver=ver)
+    #     self.save_results_2file(results=test_results, overwrite=True, ver=ver)
         
 
 
@@ -753,7 +835,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
 
-class PromptEngineeringExperimentAssessors():
+class PromptEngineeringExperimentsAssessors():
 
 
     def __init__(self):
@@ -820,11 +902,15 @@ class PromptEngineeringExperimentAssessors():
     def assess_response(self, results, llm, llm_params):
 
         func_name = inspect.currentframe().f_code.co_name
+        assessor_name = f"""{func_name}_01_model-{llm_params["model"]}"""
+        if llm_params.get("temperature"):
+            assessor_name += """_{t-llm_params["temperature"]}"""
 
-        if f'assessor.{func_name}' not in results.columns:
-            results[f'assessor.{func_name}'] = None
 
-        mask = results[f'assessor.{func_name}'].isnull()
+        if f'assessor.{assessor_name}' not in results.columns:
+            results[f'assessor.{assessor_name}'] = None
+
+        mask = results[f'assessor.{assessor_name}'].isnull()
 
         system_message = """
             Here's a conversation between an Assistant and a User:
@@ -844,6 +930,8 @@ class PromptEngineeringExperimentAssessors():
             - "result": result status
         """
 
+
+
         # results['tmp.{func_name}.message_history'] = results.apply(lambda row: row["messages"] + [{"role": "assistant", "content": row["generation"]}], axis=1)
         # results["tmp.{func_name}.system_message"] = results['tmp.{func_name}.message_history'].apply(lambda x: [ { "role": "system", "content": system_message.format(messages=str(x)) }])
         # results[f'assessor.{func_name}'] = results["tmp.{func_name}.system_message"].apply(lambda x: llm.create_completion(messages=x, llm_params=llm_params)["choices"][0]["message"]["content"])
@@ -852,12 +940,17 @@ class PromptEngineeringExperimentAssessors():
         # results[f'assessor.{func_name}'] = results[f'assessor.{func_name}'].apply(lambda x: x.replace('```', '', 1) if x.endswith('```') else x)
 
 
-        results.loc[mask, 'tmp.{func_name}.message_history'] = results.loc[mask].apply(lambda row: row["messages"] + [{"role": "assistant", "content": row["generation"]}], axis=1)
-        results.loc[mask, "tmp.{func_name}.system_message"] = results.loc[mask, 'tmp.{func_name}.message_history'].apply(lambda x: [ { "role": "system", "content": system_message.format(messages=str(x)) }])
-        results.loc[mask, f'assessor.{func_name}'] = results.loc[mask, "tmp.{func_name}.system_message"].apply(lambda x: llm.create_completion(messages=x, llm_params=llm_params)["choices"][0]["message"]["content"])
+        results.loc[mask, 'tmp.{assessor_name}.message_history'] = results.loc[mask].apply(lambda row: row["messages"] + [{"role": "assistant", "content": row["generation"]}], axis=1)
+        results.loc[mask, "tmp.{assessor_name}.system_message"] = results.loc[mask, 'tmp.{assessor_name}.message_history'].apply(lambda x: [ { "role": "system", "content": system_message.format(messages=str(x)) }])
+        results.loc[mask, f'assessor.{assessor_name}'] = results.loc[mask, "tmp.{assessor_name}.system_message"].apply(lambda x: llm.create_completion(messages=x, llm_params=llm_params)["choices"][0]["message"]["content"])
 
-        results.loc[mask, f'assessor.{func_name}'] = results.loc[mask, f'assessor.{func_name}'].apply(lambda x: x.replace('```json', '', 1) if x.startswith('```json') else x.rstrip('```'))
-        results.loc[mask, f'assessor.{func_name}'] = results.loc[mask, f'assessor.{func_name}'].apply(lambda x: x.replace('```', '', 1) if x.endswith('```') else x)
+        results.loc[mask, f'assessor.{assessor_name}'] = results.loc[mask, f'assessor.{assessor_name}'].apply(lambda x: x.replace('```json', '', 1) if x.startswith('```json') else x.rstrip('```'))
+        results.loc[mask, f'assessor.{assessor_name}'] = results.loc[mask, f'assessor.{assessor_name}'].apply(lambda x: x.replace('```', '', 1) if x.endswith('```') else x)
 
         tmp_columns = results.filter(like='tmp.').columns
+        
         results.drop(columns=tmp_columns, inplace=True)
+
+        # assessor name and details
+        return assessor_name, { "system_message": system_message, "llm_params": llm_params }
+
