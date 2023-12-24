@@ -1,1 +1,1 @@
-from .aichamptools import LLMUsage, PromptEngineeringExperiment, LLMMistral, LLMOpenAI
+from .aichamptools import AIChampTools, LLMUsage, PromptEngineeringExperiment, LLMMistral, LLMOpenAI
