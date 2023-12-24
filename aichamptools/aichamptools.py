@@ -34,7 +34,7 @@ import inspect
 
 class AIChampTools():
 
-    def __init__(self, logs_folder="aichamptools_logs/"):
+    def __init__(self, logs_folder="aichamptools_logs/",log_on=True):
         self.__version__ = '0.0.23'
         self.logs_folder = logs_folder
 
@@ -59,26 +59,31 @@ class AIChampTools():
 
 
     def log(self, level, class_instance, message, user_id=None):
-        current_frame = inspect.currentframe()
-        frame_info = inspect.getframeinfo(current_frame.f_back)
+
+        if self.log_on:
+            current_frame = inspect.currentframe()
+            frame_info = inspect.getframeinfo(current_frame.f_back)
+            
+            file_name = os.path.basename(frame_info.filename)  # Get only the base filename, not the full path
+            line_number = frame_info.lineno
+            class_name = class_instance.__class__.__name__
+            func_name = current_frame.f_back.f_code.co_name
+
+            # Check if the logging level is valid
+            if level not in ['debug', 'info', 'warning', 'error', 'critical']:
+                level = 'info'
+
+            log_func = getattr(self.sbs_logger, level)
+            log_message = f'{file_name}:{line_number} - {class_name} - {func_name} - {message}'
+
+            # Add user ID to the log message if it's provided
+            if user_id is not None:
+                log_message += f' - user {user_id}'
+
+            log_func(log_message)
         
-        file_name = os.path.basename(frame_info.filename)  # Get only the base filename, not the full path
-        line_number = frame_info.lineno
-        class_name = class_instance.__class__.__name__
-        func_name = current_frame.f_back.f_code.co_name
-
-        # Check if the logging level is valid
-        if level not in ['debug', 'info', 'warning', 'error', 'critical']:
-            level = 'info'
-
-        log_func = getattr(self.sbs_logger, level)
-        log_message = f'{file_name}:{line_number} - {class_name} - {func_name} - {message}'
-
-        # Add user ID to the log message if it's provided
-        if user_id is not None:
-            log_message += f' - user {user_id}'
-
-        log_func(log_message)
+        else:
+            return
 
 
 
@@ -138,18 +143,20 @@ class LLM(AIChampTools):
 
     models = {}
 
-    def __init__(self):
+    def __init__(self, log_on=True):
 
         super().__init__()
 
         # a flag if the LLM requires a user message to get completion (for example, in OpenAI you can send only system message, but Mistral will throw an error if you do so with a user's message)
         self.requires_user_message = False
+        self.log_on = log_on
+
 
     def execution_cost(self, model:str, llm_usage:LLMUsage) -> float:
 
-        self.sbs_logger.info(f"START")
-        self.sbs_logger.info(f"model: {model}")
-        self.sbs_logger.info(f"llm_usage: {llm_usage}")
+        self.log("info", self, f"""START""")
+        self.log("info", self, f"""INPUT: model: {model}""")
+        self.log("info", self, f"""INPUT: llm_usage: {llm_usage}""")
 
         if model in self.models:
             pricing = self.models[model]["pricing"]
@@ -180,9 +187,17 @@ class LLMMistral(LLM):
         "no-pricing": { "pricing": {"prompt_tokens": 0, "completion_tokens": 0}}
     }
 
-    def __init__(self, api_key=os.getenv("MISTRAL_API_KEY")):
-        
+    def __init__(self, api_key=os.getenv("MISTRAL_API_KEY"), log_on=True):
+
+        print(f"({self}) 0 TMP log_on: {log_on}")
+
         super().__init__()
+
+        print(f"({self}) 1 TMP log_on: {log_on}, self.log_on: {self.log_on}")
+
+        self.log_on = log_on if log_on is not None else self.log_on
+
+        print(f"({self}) 2 TMP log_on: {log_on}, self.log_on: {self.log_on}")
 
         self.api_key = api_key
         self.client = MistralClient(api_key=self.api_key)
@@ -275,9 +290,17 @@ class LLMOpenAI(LLM):
     }
 
 
-    def __init__(self, api_key=os.getenv("OPENAI_API_KEY")):
+    def __init__(self, api_key=os.getenv("OPENAI_API_KEY"), log_on=True):
+
+        print(f"({self}) 0 TMP log_on: {log_on}")
 
         super().__init__()
+
+        print(f"({self}) 1 TMP log_on: {log_on}, self.log_on: {self.log_on}")
+
+        self.log_on = log_on if log_on is not None else self.log_on
+
+        print(f"({self}) 2 TMP log_on: {log_on}, self.log_on: {self.log_on}")
 
         self.api_key = api_key
         self.client = OpenAI(api_key=self.api_key)
@@ -536,23 +559,23 @@ class PromptEngineeringExperiment(AIChampTools):
 
     
     def run(self, test_data, reps=1, ver=None, max_data_points=0, llm_params=None, assessors=None):
-        self.sbs_logger.info("START")
-        self.sbs_logger.info(f"llm_params: {llm_params}")
+
+        self.log("info", self, f"""START""")
+        self.log("info", self, f"""llm_params: {llm_params}""")
 
         llm_params = copy.deepcopy(llm_params) or copy.deepcopy(self.llm_params)
         llm_params = { **llm_params, "n": reps }
         # llm_params["timeout"] = llm_params.get("timeout") or 30
-        self.sbs_logger.info(f"llm_params after modif: {llm_params}")
+        self.log("info", self, f"""llm_params after modif: {llm_params}""")
 
 
         message_templates = self.message_templates or [
             {"role": "system", "content": "Act as a fruit professional. Always respond in json format with the keys: fruit, color"},
             {"role": "user", "content": "Which color is a {fruit}?"}
         ]
-        self.sbs_logger.info(f"message_templates: {message_templates}")
+        self.log("info", self, f"""message_templates: {message_templates}""")
 
-
-        self.sbs_logger.info(f"test_data: {test_data}")
+        self.log("info", self, f"""test_data: {test_data}""")
 
 
         synth_data = []
@@ -563,11 +586,11 @@ class PromptEngineeringExperiment(AIChampTools):
             # Generate synthetic data for each data point
             for i, dp in enumerate(test_data):
 
-                self.sbs_logger.info(f"DATAPOINT {i}: {dp}")
+                self.log("info", self, f"""DATAPOINT {i}: {dp}""")
 
 
                 if max_data_points and data_points_processed>=max_data_points:
-                    self.sbs_logger.info(f"Maximum number of data points to process reached.")
+                    self.log("info", self, f"""Maximum number of data points to process reached.""")
                     break
 
                 # Populate a copy of messages with the data point values
@@ -578,18 +601,17 @@ class PromptEngineeringExperiment(AIChampTools):
                 llm_response = {}
 
 
-                self.sbs_logger.info(f"messages passed to AI: {json.dumps(messages_populated, indent=4)}")
+                self.log("info", self, f"""messages passed to AI: {json.dumps(messages_populated, indent=4)}""")
 
 
                 llm_response = self.llm.create_completion(llm_params=llm_params, messages=messages_populated)
 
 
-                self.sbs_logger.info(f'How many choices? {llm_response["choices"]}')
+                self.log("info", self, f"""How many choices? {llm_response["choices"]}""")
 
 
                 for j, choice in enumerate(llm_response["choices"]):
-
-                    self.sbs_logger.info(f"Data point {i+1}/{len(test_data)} (limit: {max_data_points}). Repetition {j+1}/{reps}")
+                    self.log("info", self, f"""Data point {i+1}/{len(test_data)} (limit: {max_data_points}). Repetition {j+1}/{reps}""")
 
                     res = choice["message"]["content"]
 
@@ -622,7 +644,7 @@ class PromptEngineeringExperiment(AIChampTools):
 
             for j, choice in enumerate(llm_response["choices"]):
 
-                self.sbs_logger.info(f"Repetition {j+1}/{reps}")
+                self.log("info", self, f"""Repetition {j+1}/{reps}""")
 
                 res = choice["message"]["content"]
 
@@ -651,18 +673,18 @@ class PromptEngineeringExperiment(AIChampTools):
                 })
 
 
-        self.sbs_logger.info(f"synth_data generated: {synth_data}")
+        self.log("info", self, f"""synth_data generated: {synth_data}""")
 
 
         synth_data_df = pd.DataFrame(synth_data)
 
 
-        self.sbs_logger.info(f"assessors: {assessors}")
+        self.log("info", self, f"""assessors: {assessors}""")
 
 
         if assessors:
             for assr in assessors:
-                self.sbs_logger.info(f"assessing using {assr}")
+                self.log("info", self, f"""assessing using {assr}""")
 
                 assr["function"](synth_data_df, *assr["input"])
 
