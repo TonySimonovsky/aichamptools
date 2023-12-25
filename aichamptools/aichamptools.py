@@ -44,6 +44,8 @@ class AIChampTools():
         # Check if logs_folder exists and create it if it doesn't
         if not os.path.exists(self.logs_folder):
             os.makedirs(self.logs_folder)
+        
+        print(f"TMP self.logs_folder: {self.logs_folder}, {os.path.abspath(self.logs_folder)}")
 
         # Create a logger for step-by-step logs
         self.sbs_logger = logging.getLogger('step_by_step')
@@ -404,10 +406,11 @@ class PromptEngineeringExperiment(AIChampTools):
     # "name": { "versions": { "v": { "message_templates": [] } } }
     experiments = {}
     
-    def __init__(self, name, ver=None, message_templates=None, llm=None, llm_params=None, test_data=None, reports_folder="reports/", logs_folder="logs/", assessors=None, db_config=None):
+    def __init__(self, name, ver=None, message_templates=None, llm=None, llm_params=None, test_data=None, reports_folder="reports/", logs_folder="logs_PromptEngineeringExperiment/", assessors=None, db_config=None, log_on=True):
         
         super().__init__()
         
+        self.log_on = log_on
         self.name = name
         self.ver = ver
         self.message_templates = message_templates
@@ -769,13 +772,13 @@ class PromptEngineeringExperiment(AIChampTools):
 
 
             if from_db:
-                assessor = self.db_session.query(PromptEngineeringExperimentsAssessorsTable).filter_by(name=assessor_name).first()
-                if assessor:
+                assessor_in_db = self.db_session.query(PromptEngineeringExperimentsAssessorsTable).filter_by(name=assessor_name).first()
+                if assessor_in_db:
                     self.log("info", self, f"""An assessor with the name {assessor_name} already exists.""")
                 else:
                     self.log("info", self, f"""Assessor '{assessor_name}' doesn't exist, creating an entry for it in the database.""")
                     try:
-                        assessor = PromptEngineeringExperimentsAssessorsTable(name=assessor_name, details=assessor_details)
+                        assessor_in_db = PromptEngineeringExperimentsAssessorsTable(name=assessor_name, details=assessor_details)
                         self.db_session.add(assessor)
                         self.db_session.commit()
                     except Exception as e:
@@ -789,7 +792,7 @@ class PromptEngineeringExperiment(AIChampTools):
                 for index, row in chunk.iterrows():
                     assessment = PromptEngineeringExperimentsAssessmentsTable(
                         exp_datapoint_id=row['id'],
-                        assessor_id=assessor.id,
+                        assessor_id=assessor_in_db.id,
                         assessment=row[f'assessor.{assessor_name}']  # replace 'assessment' with the actual column name for the assessment
                     )
                     self.db_session.add(assessment)
