@@ -37,6 +37,7 @@ class AIChampTools():
     def __init__(self, logs_folder="aichamptools_logs/",log_on=True):
         self.__version__ = '0.0.23'
         self.logs_folder = logs_folder
+        self.log_on = log_on
 
         # setting up logging
 
