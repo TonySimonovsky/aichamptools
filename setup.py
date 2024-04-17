@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='aichamptools',
-    version='0.0.23',
+    version='0.0.24',
     packages=find_packages(),
     description='Various useful tools to work with LLMs. Prompt Engineering, experiments, etc',
     author='Tony AI Champ',
@@ -14,6 +14,7 @@ setup(
         'sqlalchemy',
         'mistralai',
         'openai',
-        'tiktoken'
+        'tiktoken',
+        'anthropic'
     ],
 )

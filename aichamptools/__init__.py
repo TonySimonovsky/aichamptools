@@ -1,1 +1,1 @@
-from .aichamptools import AIChampTools, LLMUsage, LLM, LLMMistral, LLMOpenAI, PromptEngineeringExperimentsDataTable, PromptEngineeringExperimentsAssessorsTable, PromptEngineeringExperimentsAssessmentsTable, PromptEngineeringExperiment
+from .aichamptools import AIChampTools, LLMUsage, LLM, LLMMistral, LLMOpenAI, LLMAnthropic, PromptEngineeringExperimentsDataTable, PromptEngineeringExperimentsAssessorsTable, PromptEngineeringExperimentsAssessmentsTable, PromptEngineeringExperiment

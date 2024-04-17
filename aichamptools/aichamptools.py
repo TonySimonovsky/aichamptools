@@ -30,12 +30,15 @@ from pydantic import BaseModel, Field
 import logging
 import inspect
 
+from pydub import AudioSegment
+
+
 
 
 class AIChampTools():
 
-    def __init__(self, logs_folder="aichamptools_logs/",log_on=True):
-        self.__version__ = '0.0.23'
+    def __init__(self, logs_folder="logs_aichamptools/",log_on=True):
+        self.__version__ = '0.0.24'
         self.logs_folder = logs_folder
         self.log_on = log_on
 
@@ -45,7 +48,7 @@ class AIChampTools():
         if not os.path.exists(self.logs_folder):
             os.makedirs(self.logs_folder)
         
-        print(f"TMP self.logs_folder: {self.logs_folder}, {os.path.abspath(self.logs_folder)}")
+        # print(f"TMP self.logs_folder: {self.logs_folder}, {os.path.abspath(self.logs_folder)}")
 
         # Create a logger for step-by-step logs
         self.sbs_logger = logging.getLogger('step_by_step')
@@ -87,8 +90,6 @@ class AIChampTools():
         
         else:
             return
-
-
 
 
 
@@ -142,8 +143,11 @@ class LLMUsage(AIChampTools):
 
 
 
+
+
 class LLM(AIChampTools):
 
+    vendor = None
     models = {}
 
     def __init__(self, log_on=True):
@@ -171,11 +175,48 @@ class LLM(AIChampTools):
         return cost
 
 
+    def num_tokens(self, text, encoding_name):
+
+        try:
+            encoding = tiktoken.encoding_for_model(encoding_name)
+            num_tokens = len(encoding.encode(text))
+        except:
+            encoding = tiktoken.encoding_for_model("gpt-3.5-turbo-1106")
+            num_tokens = len(encoding.encode(text))
+
+        return num_tokens
+    
+
+    def messages_populate(self, messages, values_to_populate, inplace=False):
+        """
+
+        Populate messages with variables in them with the values.
+
+        messages - list of dicts, same as what is accepted as input by LLMs (example: [{"role":"system","content":"some instructions"}])
+        values_to_populate - dict of values to populate variables inside "content" of messages with
+        inplace - by default, the method will create a copy of the messages, rather than changing the original
+
+        """
+
+        msgs = messages if inplace else copy.deepcopy(messages)
+
+        for m in msgs:
+            m["content"] = m["content"].format(**values_to_populate)
+        
+        return msgs
+
+
+    def __str__(self):
+        return self.vendor
+
+
+
+
+
 
 
 from mistralai.client import MistralClient
 from mistralai.models.chat_completion import ChatMessage
-
 
 class LLMMistral(LLM):
 
@@ -184,9 +225,9 @@ class LLMMistral(LLM):
 
     models = {
         # from https://docs.mistral.ai/platform/pricing/ on 2023.12.15
-        "mistral-tiny": { "pricing": {"prompt_tokens": 0.14*1.1/1000, "completion_tokens": 0.42*1.1/1000}},
-        "mistral-small": { "pricing": {"prompt_tokens": 0.6*1.1/1000, "completion_tokens": 1.8*1.1/1000}},
-        "mistral-medium": { "pricing": {"prompt_tokens": 2.5*1.1/1000, "completion_tokens": 7.5*1.1/1000}},
+        "mistral-tiny": { "pricing": {"prompt_tokens": 0.14*1.1/1000, "completion_tokens": 0.42*1.1/1000}, "context_window": 32000 },
+        "mistral-small": { "pricing": {"prompt_tokens": 0.6*1.1/1000, "completion_tokens": 1.8*1.1/1000}, "context_window": 32000 },
+        "mistral-medium": { "pricing": {"prompt_tokens": 2.5*1.1/1000, "completion_tokens": 7.5*1.1/1000}, "context_window": 32000 },
         "no-pricing": { "pricing": {"prompt_tokens": 0, "completion_tokens": 0}}
     }
 
@@ -274,19 +315,21 @@ class LLMMistral(LLM):
 
 
 
+
+
 class LLMOpenAI(LLM):
     vendor="OpenAI"
 
     models = {
         # from https://openai.com/pricing on 2023.11.16
-        "gpt-4-1106-preview": { "pricing": {"prompt_tokens": 0.01, "completion_tokens": 0.03}},
+        "gpt-4-1106-preview": { "pricing": {"prompt_tokens": 0.01, "completion_tokens": 0.03}, "context_window": 128000 },
         "gpt-4-1106-vision-preview": { "pricing": {"prompt_tokens": 0.01, "completion_tokens": 0.03}},
-        "gpt-4": { "pricing": {"prompt_tokens": 0.03, "completion_tokens": 0.06}},
-        "gpt-4-32k": { "pricing": {"prompt_tokens": 0.06, "completion_tokens": 0.12}},
-        "gpt-3.5-turbo-1106": { "pricing": {"prompt_tokens": 0.001, "completion_tokens": 0.0020}},
+        "gpt-4": { "pricing": {"prompt_tokens": 0.03, "completion_tokens": 0.06}, "context_window": 16000 },
+        "gpt-4-32k": { "pricing": {"prompt_tokens": 0.06, "completion_tokens": 0.12}, "context_window": 32000},
+        "gpt-3.5-turbo-1106": { "pricing": {"prompt_tokens": 0.001, "completion_tokens": 0.0020}, "context_window": 16000 },
 
         # guesses on 2023.11.16
-        "gpt-3.5-turbo": { "pricing": {"prompt_tokens": 0.001, "completion_tokens": 0.0020}},
+        "gpt-3.5-turbo": { "pricing": {"prompt_tokens": 0.001, "completion_tokens": 0.0020}, "context_window": 4096 },
         "gpt-3.5-turbo-0613": { "pricing": {"prompt_tokens": 0.001, "completion_tokens": 0.0020}},
 
         "no-pricing": { "pricing": {"prompt_tokens": 0, "completion_tokens": 0}}
@@ -307,6 +350,12 @@ class LLMOpenAI(LLM):
 
         self.api_key = api_key
         self.client = OpenAI(api_key=self.api_key)
+
+
+    def num_tokens(self, text, encoding_name):
+        encoding = tiktoken.encoding_for_model(encoding_name)
+        num_tokens = len(encoding.encode(text))
+        return num_tokens
 
 
     def create_completion(self, llm_params, messages):
@@ -337,6 +386,255 @@ class LLMOpenAI(LLM):
         return llm_response
 
 
+    def transcribe(self, file_path, model="whisper-1"):
+
+        self.log("info", self, f"""START""")
+        self.log("info", self, f"""INPUT: file_path: {file_path}""")
+
+        directory_path = os.path.dirname(file_path)
+
+        self.log("info", self, f"""INPUT: directory_path: {directory_path}""")
+
+
+        song = AudioSegment.from_file(file_path,"mp4")
+
+        # PyDub handles time in milliseconds
+        chunk_length = 10 * 60 * 1000  # 10 minutes
+        chunks = [song[i:i + chunk_length] for i in range(0, len(song), chunk_length)]
+
+        full_transcript = ""
+        for i, chunk in enumerate(chunks):
+            chunk_filepath = f"{directory_path}/chunk_{i}.mp3"
+            chunk.export(chunk_filepath, format="mp3")
+
+            # Check if the chunk file size is less than 25 MB
+            if os.path.getsize(chunk_filepath) < 25 * 1024 * 1024:
+                with open(chunk_filepath, "rb") as file:
+                    self.log("info", self, f"""Starting chunk {i} ('{chunk_filepath}') transcription""")
+
+                    try:
+                        transcript = self.client.audio.transcriptions.create(
+                            model=model,
+                            file=file
+                        )
+                        n = 200
+
+                        print(f"TMP ", transcript)
+
+                        self.log("info", self, f"""Chunk {i} of '{file_path}' transcribed successfully. First {n} chars: {transcript.text[0:n]}... ({len(transcript.text)-n} more)""")
+                    except Exception as e:
+                        self.log("error", self, f""""Couldn't transcribe the chunk {i} of '{file_path}': {e}""")
+                    
+                    full_transcript += transcript.text
+
+            # Remove the chunk file after transcribing
+            os.remove(chunk_filepath)
+
+
+        self.log("info", self, f"""RETURN""")
+
+        return full_transcript
+
+
+
+
+import requests
+
+class LLMORClaude(LLM):
+
+    vendor="Claude through OpenRouter"
+
+    models = {
+        # from https://openrouter.ai/docs#models on 2023.12.29
+        "anthropic/claude-2": { "pricing": {"prompt_tokens": 0.008, "completion_tokens": 0.024}, "context_window": 200000 },
+        "anthropic/claude-2.0": { "pricing": {"prompt_tokens": 0.008, "completion_tokens": 0.024}, "context_window": 100000 },
+        "anthropic/claude-instant-v1": { "pricing": {"prompt_tokens": 0.00163, "completion_tokens": 0.00551}, "context_window": 100000 },
+
+        "no-pricing": { "pricing": {"prompt_tokens": 0, "completion_tokens": 0}}
+    }
+
+
+
+    def __init__(self, api_key=os.getenv("OPENROUTER_API_KEY"), log_on=True):
+
+        super().__init__()
+
+        self.log_on = log_on if log_on is not None else self.log_on
+
+        self.api_key = api_key
+
+        self.headers = {
+            'Authorization': f'Bearer {self.api_key}',
+            'HTTP-Referer': 'https://localhost',
+            'Content-Type': 'application/json'
+        }
+
+
+
+
+    def create_completion(self, llm_params, messages):
+
+        self.log("info", self, f"""START""")
+        self.log("info", self, f"""INPUT: llm_params: {llm_params}""")
+        self.log("info", self, f"""INPUT: messages: {json.dumps(messages,indent=4)}""")
+
+        llm_response = None
+        llm_generation_time = 0
+        try:
+            start_time = time.time()
+
+            llm_response = requests.post('https://openrouter.ai/api/v1/chat/completions', headers=self.headers, data=json.dumps({**llm_params,"messages":messages}))
+
+            end_time = time.time()
+            llm_generation_time = end_time - start_time
+
+            self.log("error", self, f"""LLM response received: {llm_response.json()}""")
+
+
+        except Exception as e:
+            self.log("error", self, f"""Error while trying to generate a completion: {e}""")
+            
+
+        llm_response = llm_response.json()
+
+
+
+        if "usage" in llm_response:
+            llm_response["usage"]["generation_time"] = llm_generation_time
+        else:
+            llm_response["usage"] = { "generation_time": llm_generation_time }
+
+        self.log("info", self, f"""RETURNING: {json.dumps(llm_response,indent=4)}""")
+
+        return llm_response
+
+
+
+
+
+    # n: int
+
+    # @property
+    # def _llm_type(self) -> str:
+    #     return "claude2"
+
+    # def _call(
+    #     self,
+    #     prompt: str,
+    #     stop: Optional[List[str]] = None,
+    #     run_manager: Optional[CallbackManagerForLLMRun] = None,
+    #     **kwargs: Any,
+    # ) -> str:
+
+
+    #     OPENROUTER_API_KEY = os.getenv('OPENROUTER_API_KEY')
+    #     YOUR_SITE_URL = 'https://localhost'
+    #     headers = {
+    #         'Authorization': f'Bearer {OPENROUTER_API_KEY}',
+    #         'HTTP-Referer': YOUR_SITE_URL,
+    #         'Content-Type': 'application/json'
+    #     }
+    #     data = {
+    #         'model': "anthropic/claude-2",
+    #         'messages': [
+    #             {'role': 'user', 'content': prompt}
+    #         ]
+    #     }
+    #     # Output example: {'choices': [{'message': {'role': 'assistant', 'content': "I am OpenAI's artificial intelligence model called GPT-3."}}], 'model': 'gpt-4-32k-0613', 'usage': {'prompt_tokens': 11, 'completion_tokens': 14, 'total_tokens': 25}, 'id': 'gen-e4MSuTT1v2wvrYFNFunhumsIawaI'}
+    #     response = requests.post('https://openrouter.ai/api/v1/chat/completions', headers=headers, data=json.dumps(data))
+    #     output = response.json()['choices'][0]['message']['content']
+
+    #     if stop is not None:
+    #         raise ValueError("stop kwargs are not permitted.")
+    #     return output
+
+    # @property
+    # def _identifying_params(self) -> Mapping[str, Any]:
+    #     """Get the identifying parameters."""
+    #     return {"n": self.n}
+
+
+
+import anthropic
+
+class LLMAnthropic(LLM):
+    vendor="Anthropic"
+
+    models = {
+        # https://docs.anthropic.com/claude/docs/models-overview
+        "claude-3-opus-20240229": { "pricing": {"prompt_tokens": 0.015, "completion_tokens": 0.075}, "context_window": 200000, "max_output": 4096 },
+        "claude-3-sonnet-20240229": { "pricing": {"prompt_tokens": 0.003, "completion_tokens": 0.015}, "context_window": 200000, "max_output": 4096 },
+        "claude-3-haiku-20240307": { "pricing": {"prompt_tokens": 0.00025, "completion_tokens": 0.00125}, "context_window": 200000, "max_output": 4096 },
+        "claude-2.1": { "pricing": {"prompt_tokens": 0.008, "completion_tokens": 0.024}, "context_window": 200000, "max_output": 4096 },
+        "claude-2.0": { "pricing": {"prompt_tokens": 0.008, "completion_tokens": 0.024}, "context_window": 100000, "max_output": 4096 },
+        "claude-instant-1.2": { "pricing": {"prompt_tokens": 0.008, "completion_tokens": 0.024}, "context_window": 100000, "max_output": 4096 },
+
+        "no-pricing": { "pricing": {"prompt_tokens": 0, "completion_tokens": 0}}
+    }
+
+
+
+    def __init__(self, api_key=os.getenv("ANTHROPIC_API_KEY"), log_on=True):
+
+        super().__init__()
+
+        self.log_on = log_on if log_on is not None else self.log_on
+
+        self.api_key = api_key
+        self.client = anthropic.Anthropic(api_key=self.api_key)
+
+
+
+
+    def create_completion(self, llm_params, messages):
+        self.log("info", self, f"""START""")
+        self.log("info", self, f"""INPUT: llm_params: {llm_params}""")
+        self.log("info", self, f"""INPUT: messages: {json.dumps(messages,indent=4)}""")
+
+        system_prompt = None
+        # Filter out the system message and update the messages list
+        filtered_messages = []
+        for message in messages:
+            if message["role"] == "system":
+                system_prompt = message["content"]
+            else:
+                filtered_messages.append(message)
+
+        # Use filtered_messages from this point forward
+        messages = filtered_messages
+
+        llm_response = None
+        llm_generation_time = 0
+        try:
+            start_time = time.time()
+
+            # Ensure to use the updated messages list without the system message
+            if system_prompt:
+                llm_response = self.client.messages.create(
+                    system=system_prompt,
+                    **llm_params,
+                    messages=messages,
+                )
+            else:
+                llm_response = self.client.messages.create(
+                    **llm_params,
+                    messages=messages,
+                )
+            end_time = time.time()
+            llm_generation_time = end_time - start_time
+        except Exception as e:
+            self.log("error", self, f"""Error while trying to generate a completion: {e}""")
+
+        llm_response = llm_response.model_dump()
+        llm_response["usage"]["generation_time"] = llm_generation_time
+
+        self.log("info", self, f"""RETURNING: {json.dumps(llm_response,indent=4)}""")
+
+        return llm_response
+
+
+
+
 
 
 
@@ -345,12 +643,10 @@ import os
 import fnmatch
 import ast
 import numpy as np
-
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, JSON, create_engine
 from sqlalchemy.orm import sessionmaker, relationship
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.dialects.postgresql import JSONB
-
 
 Base = declarative_base()
 
@@ -397,6 +693,7 @@ class PromptEngineeringExperimentsAssessmentsTable(Base):
 
     data = relationship("PromptEngineeringExperimentsDataTable", back_populates="assessments")
     assessor = relationship("PromptEngineeringExperimentsAssessorsTable", back_populates="assessments")
+
 
 
 
