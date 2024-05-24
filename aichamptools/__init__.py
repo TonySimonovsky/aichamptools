@@ -9,6 +9,7 @@
 from .llms.anthropic import LLMAnthropic
 from .llms.mistralai import LLMMistral
 from .llms.openai import LLMOpenAI
+from .llms.huggingface import LLMsOnHF
 
 # # Import assessment tools
 # from .assessment.assessor import Assessor

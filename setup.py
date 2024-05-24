@@ -6,7 +6,7 @@ setup(
     description='A library for LLMOps including connectors to various LLMs and assessment tools',
     author='Tony AI Champ',
     author_email='tony@aicha.mp',
-    packages=find_packages(),
+    packages=find_packages(include=['aichamptools', 'aichamptools.*']),
     install_requires=[
         'requests',
         'pydantic',
@@ -16,7 +16,6 @@ setup(
         'pydub',
         'mistralai',
         'anthropic',
-        'jiter',
         'sqlalchemy'
     ],
 )
