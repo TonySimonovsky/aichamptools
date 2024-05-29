@@ -97,8 +97,7 @@ class LLMAnthropic(LLM):
                 "message": llm_response_original["content"][0]["text"],
                 "role": llm_response_original["role"],
                 "llm_params": llm_params,
-                "usage": llm_response_original["usage"],
-                "cost": self.execution_cost(model=llm_params["model"], llm_usage=llm_response_original["usage"])
+                "usage": { **llm_response_original["usage"], "cost": self.execution_cost(model=llm_params["model"], llm_usage=llm_response_original["usage"]) },
             }
 
         log_message(self.logger, "info", self, f"""RETURNING: {json.dumps(llm_response,indent=4)}""")
