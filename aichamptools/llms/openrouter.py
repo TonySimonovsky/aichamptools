@@ -25,13 +25,14 @@ class LLMsOpenRouter(LLM):
 
 
 
-    def __init__(self, api_key, log_on=True):
+    def __init__(self, api_key, api_url=None, log_on=True):
 
         super().__init__(log_on=log_on)
 
         self.log_on = log_on if log_on is not None else self.log_on
 
         self.api_key = api_key
+        self.api_url = api_url
 
         self.headers = {
             'Authorization': f'Bearer {self.api_key}',

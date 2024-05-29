@@ -12,6 +12,7 @@ from mistralai.models.chat_completion import ChatMessage
 class LLMMistral(LLM):
 
     vendor="MistralAI"
+    api_hoster="MistralAI"
 
 
     models = {
@@ -23,11 +24,14 @@ class LLMMistral(LLM):
         "no-pricing": { "pricing": {"prompt_tokens": 0, "completion_tokens": 0}}
     }
 
-    def __init__(self, api_key, log_on=True):
+    def __init__(self, api_key, api_url=None, vendor=None, api_hoster=None, log_on=True):
 
         super().__init__(log_on=log_on)
 
+        self.log_on = log_on if log_on is not None else self.log_on
+
         self.api_key = api_key
+        self.api_url = api_url
         self.client = MistralClient(api_key=self.api_key)
         self.requires_user_message = True
     
@@ -41,9 +45,9 @@ class LLMMistral(LLM):
         log_message(self.logger, "info", self, f"""INPUT: messages: {json.dumps(messages,indent=4)}""")
         log_message(self.logger, "info", self, f"""INPUT: api_key passed: {bool(self.api_key)}""")
 
-        # checking of there the last message is from the user (Mistral LLM requirement)
-        if messages[-1]["role"] != "user":
-            messages.append({"role": "user", "content":"[ignore this message and continue following your instructions]"})
+        # # checking of there the last message is from the user (Mistral LLM requirement)
+        # if messages[-1]["role"] != "user":
+        #     messages.append({"role": "user", "content":"[... ignore this message and continue following your instructions]"})
 
         try:
             messages = [
@@ -77,6 +81,8 @@ class LLMMistral(LLM):
                 )
                 end_time = time.time()
                 llm_generation_time = end_time - start_time
+                log_message(self.logger, "info", self, f"""llm_response {i+1}/{reps} before model_dump: {llm_response}""")
+
             except Exception as e:
                 log_message(self.logger, "error", self, f"""Error while trying to generate a completion: {e}""")
 

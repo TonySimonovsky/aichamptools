@@ -10,6 +10,7 @@ import anthropic
 
 class LLMAnthropic(LLM):
     vendor="Anthropic"
+    api_hoster="Anthropic"
 
     models = {
         # https://docs.anthropic.com/claude/docs/models-overview
@@ -27,7 +28,7 @@ class LLMAnthropic(LLM):
 
 
 
-    def __init__(self, api_key=None, log_on=True):
+    def __init__(self, api_key=None, api_url=None, vendor=None, api_hoster=None, log_on=True):
 
         super().__init__(log_on=log_on)
 
@@ -82,16 +83,24 @@ class LLMAnthropic(LLM):
 
         llm_response = llm_response.model_dump()
         llm_response["usage"]["generation_time"] = llm_generation_time
+
+
         if output_v==0.02:
             llm_response_original = copy.deepcopy(llm_response)
+
+            log_message(self.logger, "info", self, f"""OUTPUT: llm_response["usage"]: {llm_response["usage"]}""")
+            log_message(self.logger, "info", self, f"""OUTPUT: llm_response_original["usage"]: {llm_response_original["usage"]}""")
+
             llm_response = {}
             llm_response["original"] = llm_response_original
             llm_response["unified"] = {
                 "message": llm_response_original["content"][0]["text"],
                 "role": llm_response_original["role"],
                 "llm_params": llm_params,
-                "usage": llm_response_original["usage"]
+                "usage": llm_response_original["usage"],
+                "cost": self.execution_cost(model=llm_params["model"], llm_usage=llm_response_original["usage"])
             }
+
         log_message(self.logger, "info", self, f"""RETURNING: {json.dumps(llm_response,indent=4)}""")
 
         return llm_response

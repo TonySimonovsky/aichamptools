@@ -15,6 +15,7 @@ from pydub import AudioSegment
 
 class LLMOpenAI(LLM):
     vendor="OpenAI"
+    api_hoster="OpenAI"
 
     models = {
         # from https://openai.com/pricing on 2023.11.16
@@ -32,7 +33,7 @@ class LLMOpenAI(LLM):
     }
 
 
-    def __init__(self, api_key, log_on=True):
+    def __init__(self, api_key, api_url=None, vendor=None, api_hoster=None, log_on=True):
 
         # print(f"({self}) 0 TMP log_on: {log_on}")
 
@@ -45,6 +46,7 @@ class LLMOpenAI(LLM):
         # print(f"({self}) 2 TMP log_on: {log_on}, self.log_on: {self.log_on}")
 
         self.api_key = api_key
+        self.api_url = api_url
         self.client = OpenAI(api_key=self.api_key)
 
 

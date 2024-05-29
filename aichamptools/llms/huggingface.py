@@ -18,7 +18,7 @@ class LLMsOnHF(LLM):
 
 
 
-    def __init__(self, api_key, api_url, log_on=True):
+    def __init__(self, api_key, api_url=None, vendor=None, api_hoster=None, log_on=True):
 
         super().__init__(log_on=log_on)
 
@@ -58,17 +58,15 @@ class LLMsOnHF(LLM):
             end_time = time.time()
             llm_generation_time = end_time - start_time
 
-            log_message(self.logger, "error", self, f"""LLM response received: {llm_response.json()}""")
+            log_message(self.logger, "info", self, f"""LLM response received: {llm_response.json()}""")
 
 
         except Exception as e:
             log_message(self.logger, "error", self, f"""Error while trying to generate a completion: {e}""")
-            print(f"""Error while trying to generate a completion: {e}""")
+            # print(f"""Error while trying to generate a completion: {e}""")
         
 
-
-
-
+        # print(f"\n\n\nllm_response.json() = {llm_response.json()}\n\n\n")
         llm_response = llm_response.json()[0]
         if "usage" in llm_response:
             llm_response["usage"]["generation_time"] = llm_generation_time
@@ -80,7 +78,6 @@ class LLMsOnHF(LLM):
             llm_response_original = copy.deepcopy(llm_response)
             llm_response = {}
             llm_response["original"] = llm_response_original
-            print(llm_response["original"])
             generated_message = self.chatml_to_messages(llm_response_original["generated_text"])[-1]
             llm_response["unified"] = {
                 "message": generated_message["content"],

@@ -85,17 +85,31 @@ class LLM(AIChampTools):
         self.log_on = log_on
 
 
-    def execution_cost(self, model:str, llm_usage:LLMUsage) -> float:
+    def execution_cost(self, model:str, llm_usage) -> float:
 
-        log_message("info", self, f"""START""")
-        log_message("info", self, f"""INPUT: model: {model}""")
-        log_message("info", self, f"""INPUT: llm_usage: {llm_usage}""")
+        log_message(self.logger, "info", self, f"""START""")
+        log_message(self.logger, "info", self, f"""INPUT: model: {model}""")
+        log_message(self.logger, "info", self, f"""INPUT: llm_usage: {llm_usage}""")
 
         if model in self.models:
             pricing = self.models[model]["pricing"]
-            cost = (llm_usage.prompt_tokens/1000)*pricing['prompt_tokens'] + (llm_usage.completion_tokens/1000)*pricing['completion_tokens']
+            if isinstance(llm_usage, LLMUsage):
+                prompt_tokens = llm_usage.prompt_tokens
+                completion_tokens = llm_usage.completion_tokens
+            elif isinstance(llm_usage, dict):
+                prompt_tokens = llm_usage.get('input_tokens', 0)
+                completion_tokens = llm_usage.get('output_tokens', 0)
+            else:
+                raise ValueError("llm_usage must be either an LLMUsage instance or a dict")
+
+            log_message(self.logger, "info", self, f"""INPUT: prompt_tokens: {prompt_tokens}""")
+            log_message(self.logger, "info", self, f"""INPUT: completion_tokens: {completion_tokens}""")
+
+            cost = (prompt_tokens / 1000) * pricing['prompt_tokens'] + (completion_tokens / 1000) * pricing['completion_tokens']
         else:
             cost = "N/A"
+
+        log_message(self.logger, "info", self, f"""OUTPUT: cost: {cost:.10f}""")
 
         return cost
 
@@ -127,6 +141,12 @@ class LLM(AIChampTools):
 
 
     def chatml_to_messages(self, prompt):
+        
+        # Ensure the prompt ends with a specific string if it doesn't already
+        message_end_token = "<|im_end|>"
+        if not prompt.rstrip().endswith(message_end_token):
+            prompt = prompt.rstrip() + message_end_token
+
         # Pattern to match each message block within the prompt
         pattern = r"<\|im_start\|>(.*?)\n(.*?)<\|im_end\|>"
         
