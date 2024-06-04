@@ -18,7 +18,9 @@ class LLMOpenAI(LLM):
     api_hoster="OpenAI"
 
     models = {
-        # from https://openai.com/pricing on 2023.11.16
+        # from https://openai.com/pricing
+        "gpt-4o": { "pricing": {"prompt_tokens": 0.005, "completion_tokens": 0.015}, "context_window": 128000 },
+
         "gpt-4-1106-preview": { "pricing": {"prompt_tokens": 0.01, "completion_tokens": 0.03}, "context_window": 128000 },
         "gpt-4-1106-vision-preview": { "pricing": {"prompt_tokens": 0.01, "completion_tokens": 0.03}},
         "gpt-4": { "pricing": {"prompt_tokens": 0.03, "completion_tokens": 0.06}, "context_window": 16000 },
