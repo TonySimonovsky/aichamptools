@@ -18,18 +18,29 @@ class LLMOpenAI(LLM):
     api_hoster="OpenAI"
 
     models = {
-        # from https://openai.com/pricing
+        # from https://openai.com/pricing 2024.06.04
         "gpt-4o": { "pricing": {"input_tokens": 0.005, "output_tokens": 0.015}, "context_window": 128000 },
-
+        "gpt-4o-2024-05-13": { "pricing": {"input_tokens": 0.005, "output_tokens": 0.015}, "context_window": 128000 },
+        "gpt-3.5-turbo-0125": { "pricing": {"input_tokens": 0.0005, "output_tokens": 0.0015}, "context_window": 16000 },
+        "gpt-3.5-turbo-instruct": { "pricing": {"input_tokens": 0.0015, "output_tokens": 0.002}, "context_window": 4000 },
+        "text-embedding-3-small": { "pricing": {"input_tokens": 0.02}, "context_window": null },
+        "text-embedding-3-large": { "pricing": {"input_tokens": 0.13}, "context_window": null },
+        "ada-v2": { "pricing": {"input_tokens": 0.10}, "context_window": null },
+        "gpt-3.5-turbo-fine-tuning": { "pricing": {"training": 0.008, "input_tokens": 0.003, "output_tokens": 0.006}, "context_window": 0 },
+        "davinci-002-fine-tuning": { "pricing": {"training": 0.006, "input_tokens": 0.012, "output_tokens": 0.012}, "context_window": 0 },
+        "babbage-002-fine-tuning": { "pricing": {"training": 0.0004, "input_tokens": 0.0016, "output_tokens": 0.0016}, "context_window": 0 },
+        "DALL-E 3": { "pricing": {"standard_1024x1024": 0.040, "standard_1024x1792": 0.080, "HD_1024x1024": 0.080, "HD_1024x1792": 0.120}, "context_window": 0 },
+        "DALL-E 2": { "pricing": {"1024x1024": 0.020, "512x512": 0.018, "256x256": 0.016}, "context_window": 0 },
+        "Whisper": { "pricing": {"input_tokens": 0.006}, "context_window": 0 },
+        "TTS": { "pricing": {"input_tokens": 0.015}, "context_window": 0 },
+        "TTS HD": { "pricing": {"input_tokens": 0.030}, "context_window": 0 },
+        "gpt-4-turbo": { "pricing": {"input_tokens": 0.01, "output_tokens": 0.03}, "context_window": 128000 },
+        "gpt-4-turbo-2024-04-09": { "pricing": {"input_tokens": 0.01, "output_tokens": 0.03}, "context_window": 128000 },
+        "gpt-4": { "pricing": {"input_tokens": 0.03, "output_tokens": 0.06}, "context_window": 8000 },
+        "gpt-4-32k": { "pricing": {"input_tokens": 0.06, "output_tokens": 0.12}, "context_window": 32000 },
+        "gpt-4-0125-preview": { "pricing": {"input_tokens": 0.01, "output_tokens": 0.03}, "context_window": 128000 },
         "gpt-4-1106-preview": { "pricing": {"input_tokens": 0.01, "output_tokens": 0.03}, "context_window": 128000 },
-        "gpt-4-1106-vision-preview": { "pricing": {"input_tokens": 0.01, "output_tokens": 0.03}},
-        "gpt-4": { "pricing": {"input_tokens": 0.03, "output_tokens": 0.06}, "context_window": 16000 },
-        "gpt-4-32k": { "pricing": {"input_tokens": 0.06, "output_tokens": 0.12}, "context_window": 32000},
-        "gpt-3.5-turbo-1106": { "pricing": {"input_tokens": 0.001, "output_tokens": 0.0020}, "context_window": 16000 },
-
-        # guesses on 2023.11.16
-        "gpt-3.5-turbo": { "pricing": {"input_tokens": 0.001, "output_tokens": 0.0020}, "context_window": 4096 },
-        "gpt-3.5-turbo-0613": { "pricing": {"input_tokens": 0.001, "output_tokens": 0.0020}},
+        "gpt-4-vision-preview": { "pricing": {"input_tokens": 0.01, "output_tokens": 0.03}, "context_window": 0 },
 
         "no-pricing": { "pricing": {"input_tokens": 0, "output_tokens": 0}}
     }
