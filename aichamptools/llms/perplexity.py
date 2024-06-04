@@ -14,6 +14,13 @@ class LLMsOnPerplexity(LLM):
     api_hoster="Perplexity"
 
     models = {
+        "llama-3-sonar-small-32k-chat": { "pricing": {"input_tokens": 0.20}, "context_window": 32768 },
+        "llama-3-sonar-small-32k-online": { "pricing": {"input_tokens": 0.20}, "context_window": 28000 },
+        "llama-3-sonar-large-32k-chat": { "pricing": {"input_tokens": 1.00}, "context_window": 32768 },
+        "llama-3-sonar-large-32k-online": { "pricing": {"input_tokens": 1.00}, "context_window": 28000 },
+        "llama-3-8b-instruct": { "pricing": {"input_tokens": 0.20}, "context_window": 8192 },
+        "llama-3-70b-instruct": { "pricing": {"input_tokens": 1.00}, "context_window": 8192 },
+        "mixtral-8x7b-instruct": { "pricing": {"input_tokens": 0.60}, "context_window": 16384 }
     }
 
 
