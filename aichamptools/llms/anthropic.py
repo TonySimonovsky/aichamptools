@@ -14,14 +14,14 @@ class LLMAnthropic(LLM):
 
     models = {
         # https://docs.anthropic.com/claude/docs/models-overview
-        "claude-3-opus-20240229": { "pricing": {"prompt_tokens": 0.015, "completion_tokens": 0.075}, "context_window": 200000, "max_output": 4096 },
-        "claude-3-sonnet-20240229": { "pricing": {"prompt_tokens": 0.003, "completion_tokens": 0.015}, "context_window": 200000, "max_output": 4096 },
-        "claude-3-haiku-20240307": { "pricing": {"prompt_tokens": 0.00025, "completion_tokens": 0.00125}, "context_window": 200000, "max_output": 4096 },
-        "claude-2.1": { "pricing": {"prompt_tokens": 0.008, "completion_tokens": 0.024}, "context_window": 200000, "max_output": 4096 },
-        "claude-2.0": { "pricing": {"prompt_tokens": 0.008, "completion_tokens": 0.024}, "context_window": 100000, "max_output": 4096 },
-        "claude-instant-1.2": { "pricing": {"prompt_tokens": 0.008, "completion_tokens": 0.024}, "context_window": 100000, "max_output": 4096 },
+        "claude-3-opus-20240229": { "pricing": {"input_tokens": 0.015, "output_tokens": 0.075}, "context_window": 200000, "max_output": 4096 },
+        "claude-3-sonnet-20240229": { "pricing": {"input_tokens": 0.003, "output_tokens": 0.015}, "context_window": 200000, "max_output": 4096 },
+        "claude-3-haiku-20240307": { "pricing": {"input_tokens": 0.00025, "output_tokens": 0.00125}, "context_window": 200000, "max_output": 4096 },
+        "claude-2.1": { "pricing": {"input_tokens": 0.008, "output_tokens": 0.024}, "context_window": 200000, "max_output": 4096 },
+        "claude-2.0": { "pricing": {"input_tokens": 0.008, "output_tokens": 0.024}, "context_window": 100000, "max_output": 4096 },
+        "claude-instant-1.2": { "pricing": {"input_tokens": 0.008, "output_tokens": 0.024}, "context_window": 100000, "max_output": 4096 },
 
-        "no-pricing": { "pricing": {"prompt_tokens": 0, "completion_tokens": 0}}
+        "no-pricing": { "pricing": {"input_tokens": 0, "output_tokens": 0}}
     }
 
     api_key = None
@@ -91,6 +91,12 @@ class LLMAnthropic(LLM):
             log_message(self.logger, "info", self, f"""OUTPUT: llm_response["usage"]: {llm_response["usage"]}""")
             log_message(self.logger, "info", self, f"""OUTPUT: llm_response_original["usage"]: {llm_response_original["usage"]}""")
 
+            # input_tokens = llm_response_original["usage"]["input_tokens"]
+            # output_tokens = llm_response_original["usage"]["output_tokens"]
+            # usage = {"input_tokens": input_tokens, "output_tokens": output_tokens, "cost": self.execution_cost(model=llm_params["model"], llm_usage={"input_tokens": input_tokens, "output_tokens": output_tokens})}
+            print(llm_response_original["usage"])
+
+
             llm_response = {}
             llm_response["original"] = llm_response_original
             llm_response["unified"] = {
@@ -98,6 +104,7 @@ class LLMAnthropic(LLM):
                 "role": llm_response_original["role"],
                 "llm_params": llm_params,
                 "usage": { **llm_response_original["usage"], "cost": self.execution_cost(model=llm_params["model"], llm_usage=llm_response_original["usage"]) },
+                # "usage": { **llm_response_original["usage"], "cost": self.execution_cost(model=llm_params["model"], llm_usage=llm_response_original["usage"]) },
             }
 
         log_message(self.logger, "info", self, f"""RETURNING: {json.dumps(llm_response,indent=4)}""")

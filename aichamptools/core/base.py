@@ -105,11 +105,13 @@ class LLM(AIChampTools):
             log_message(self.logger, "info", self, f"""INPUT: prompt_tokens: {prompt_tokens}""")
             log_message(self.logger, "info", self, f"""INPUT: completion_tokens: {completion_tokens}""")
 
-            cost = (prompt_tokens / 1000) * pricing['prompt_tokens'] + (completion_tokens / 1000) * pricing['completion_tokens']
+            cost = (prompt_tokens / 1000) * pricing["input_tokens"] + (completion_tokens / 1000) * pricing['output_tokens']
+    
+            log_message(self.logger, "info", self, f"""OUTPUT: cost: {cost:.10f}""")
         else:
             cost = "N/A"
+            log_message(self.logger, "info", self, f"""OUTPUT: cost: {cost}""")
 
-        log_message(self.logger, "info", self, f"""OUTPUT: cost: {cost:.10f}""")
 
         return cost
 

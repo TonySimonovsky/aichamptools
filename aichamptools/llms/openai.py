@@ -19,19 +19,19 @@ class LLMOpenAI(LLM):
 
     models = {
         # from https://openai.com/pricing
-        "gpt-4o": { "pricing": {"prompt_tokens": 0.005, "completion_tokens": 0.015}, "context_window": 128000 },
+        "gpt-4o": { "pricing": {"input_tokens": 0.005, "output_tokens": 0.015}, "context_window": 128000 },
 
-        "gpt-4-1106-preview": { "pricing": {"prompt_tokens": 0.01, "completion_tokens": 0.03}, "context_window": 128000 },
-        "gpt-4-1106-vision-preview": { "pricing": {"prompt_tokens": 0.01, "completion_tokens": 0.03}},
-        "gpt-4": { "pricing": {"prompt_tokens": 0.03, "completion_tokens": 0.06}, "context_window": 16000 },
-        "gpt-4-32k": { "pricing": {"prompt_tokens": 0.06, "completion_tokens": 0.12}, "context_window": 32000},
-        "gpt-3.5-turbo-1106": { "pricing": {"prompt_tokens": 0.001, "completion_tokens": 0.0020}, "context_window": 16000 },
+        "gpt-4-1106-preview": { "pricing": {"input_tokens": 0.01, "output_tokens": 0.03}, "context_window": 128000 },
+        "gpt-4-1106-vision-preview": { "pricing": {"input_tokens": 0.01, "output_tokens": 0.03}},
+        "gpt-4": { "pricing": {"input_tokens": 0.03, "output_tokens": 0.06}, "context_window": 16000 },
+        "gpt-4-32k": { "pricing": {"input_tokens": 0.06, "output_tokens": 0.12}, "context_window": 32000},
+        "gpt-3.5-turbo-1106": { "pricing": {"input_tokens": 0.001, "output_tokens": 0.0020}, "context_window": 16000 },
 
         # guesses on 2023.11.16
-        "gpt-3.5-turbo": { "pricing": {"prompt_tokens": 0.001, "completion_tokens": 0.0020}, "context_window": 4096 },
-        "gpt-3.5-turbo-0613": { "pricing": {"prompt_tokens": 0.001, "completion_tokens": 0.0020}},
+        "gpt-3.5-turbo": { "pricing": {"input_tokens": 0.001, "output_tokens": 0.0020}, "context_window": 4096 },
+        "gpt-3.5-turbo-0613": { "pricing": {"input_tokens": 0.001, "output_tokens": 0.0020}},
 
-        "no-pricing": { "pricing": {"prompt_tokens": 0, "completion_tokens": 0}}
+        "no-pricing": { "pricing": {"input_tokens": 0, "output_tokens": 0}}
     }
 
 
@@ -92,11 +92,16 @@ class LLMOpenAI(LLM):
             llm_response_original = copy.deepcopy(llm_response)
             llm_response = {}
             llm_response["original"] = llm_response_original
+
+            input_tokens = llm_response_original["usage"]["prompt_tokens"]
+            output_tokens = llm_response_original["usage"]["completion_tokens"]
+            usage = {"input_tokens": input_tokens, "output_tokens": output_tokens, "cost": self.execution_cost(model=llm_params["model"], llm_usage={"input_tokens": input_tokens, "output_tokens": output_tokens})}
+
             llm_response["unified"] = {
                 "message": llm_response_original["choices"][0]["message"]["content"],
                 "role": llm_response_original["choices"][0]["message"]["role"],
                 "llm_params": llm_params,
-                "usage": { **llm_response_original["usage"], "cost": self.execution_cost(model=llm_params["model"], llm_usage=llm_response_original["usage"]) },
+                "usage": { **usage, "cost": self.execution_cost(model=llm_params["model"], llm_usage=usage) },
                 # "usage": llm_response_original["usage"]
             }
 
