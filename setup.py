@@ -16,6 +16,7 @@ setup(
         'pydub',
         'mistralai',
         'anthropic',
-        'sqlalchemy'
+        'sqlalchemy',
+        'replicate'
     ],
 )
