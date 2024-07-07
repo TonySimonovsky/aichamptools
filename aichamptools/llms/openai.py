@@ -6,7 +6,7 @@ import os
 from ..core import LLM
 from ..utilities import log_message
 
-from openai import OpenAI, ChatCompletion, APITimeoutError
+from openai import OpenAI, AsyncOpenAI, ChatCompletion, APITimeoutError
 import tiktoken
 
 from pydub import AudioSegment
@@ -48,28 +48,21 @@ class LLMOpenAI(LLM):
 
     def __init__(self, api_key, api_url=None, vendor=None, api_hoster=None, log_on=True):
 
-        # print(f"({self}) 0 TMP log_on: {log_on}")
-
         super().__init__(log_on=log_on)
 
-        # print(f"({self}) 1 TMP log_on: {log_on}, self.log_on: {self.log_on}")
-
         self.log_on = log_on if log_on is not None else self.log_on
-
-        # print(f"({self}) 2 TMP log_on: {log_on}, self.log_on: {self.log_on}")
 
         self.api_key = api_key
         self.api_url = api_url
         self.client = OpenAI(api_key=self.api_key)
-
+        self.client_async = AsyncOpenAI(api_key=self.api_key)
 
     def num_tokens(self, text, encoding_name):
         encoding = tiktoken.encoding_for_model(encoding_name)
         num_tokens = len(encoding.encode(text))
         return num_tokens
 
-
-    def create_completion(self, llm_params, messages, output_v=0.02):
+    def create_completion(self, llm_params=None, messages=None, model=None, output_v=0.02):
         """
 
         output_v - different output versions:
@@ -85,6 +78,10 @@ class LLMOpenAI(LLM):
 
         llm_response = None
         llm_generation_time = 0
+        if not llm_params:
+            llm_params = {}
+        if model:
+            llm_params["model"] = model
         try:
             start_time = time.time()
             llm_response = self.client.chat.completions.create(
@@ -119,6 +116,84 @@ class LLMOpenAI(LLM):
         log_message(self.logger, "info", self, f"""RETURNING: {json.dumps(llm_response,indent=4)}""")
 
         return llm_response
+
+    async def create_completion_async(self, llm_params, messages, output_v=0.02):
+        log_message(self.logger, "info", self, f"""START ASYNC""")
+        log_message(self.logger, "info", self, f"""INPUT: llm_params: {llm_params}""")
+        log_message(self.logger, "info", self, f"""INPUT: messages: {json.dumps(messages,indent=4)}""")
+
+        full_content = ""
+        usage = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
+
+        try:
+            stream = await self.client_async.chat.completions.create(
+                stream=True,
+                **llm_params,
+                messages=messages
+            )
+            start_time = time.time()
+            first_token_time = None
+            async for chunk in stream:
+                if chunk.choices[0].delta.content is not None:
+                    if not first_token_time:
+                        first_token_time = time.time()
+                    content = chunk.choices[0].delta.content
+                    full_content += content
+                    yield {"type": "content", "data": content}
+                if chunk.usage:
+                    usage["prompt_tokens"] = chunk.usage.prompt_tokens
+                    usage["completion_tokens"] = chunk.usage.completion_tokens
+                    usage["total_tokens"] = chunk.usage.total_tokens
+            end_time = time.time()
+
+            time_to_1st_token = first_token_time - start_time
+            llm_generation_time = end_time - start_time
+
+            llm_response = {
+                "id": f"chatcmpl-{time.time()}",
+                "object": "chat.completion",
+                "created": int(time.time()),
+                "model": llm_params.get("model", "unknown"),
+                "choices": [
+                    {
+                        "index": 0,
+                        "message": {
+                            "role": "assistant",
+                            "content": full_content
+                        },
+                        "finish_reason": "stop"
+                    }
+                ],
+                "usage": usage
+            }
+
+            llm_response["usage"]["time_to_1st_token"] = time_to_1st_token
+            llm_response["usage"]["generation_time"] = llm_generation_time
+
+            if output_v == 0.02:
+                llm_response_original = copy.deepcopy(llm_response)
+                final_response = {}
+                final_response["original"] = llm_response_original
+
+                input_tokens = llm_response_original["usage"]["prompt_tokens"]
+                output_tokens = llm_response_original["usage"]["completion_tokens"]
+                usage = {**llm_response["usage"], "input_tokens": input_tokens, "output_tokens": output_tokens, "cost": self.execution_cost(model=llm_params["model"], llm_usage={"input_tokens": input_tokens, "output_tokens": output_tokens})}
+
+                final_response["unified"] = {
+                    "message": full_content,
+                    "role": "assistant",
+                    "llm_params": llm_params,
+                    "usage": { **usage, "cost": self.execution_cost(model=llm_params["model"], llm_usage=usage) },
+                }
+            else:
+                final_response = llm_response
+
+            yield {"type": "final", "data": final_response}
+
+        except Exception as e:
+                log_message(self.logger, "error", self, f"""Error while trying to generate a completion: {e}""")
+                yield {"type": "error", "data": str(e)}
+
 
 
     def transcribe(self, file_path, model="whisper-1"):

@@ -42,10 +42,18 @@ class LLMAnthropic(LLM):
 
 
 
-    def create_completion(self, llm_params, messages, output_v=0.02):
+
+    def create_completion(self, llm_params=None, messages=None, model=None, output_v=0.02):
         log_message(self.logger, "info", self, f"""START""")
         log_message(self.logger, "info", self, f"""INPUT: llm_params: {llm_params}""")
         log_message(self.logger, "info", self, f"""INPUT: messages: {json.dumps(messages,indent=4)}""")
+
+        if not llm_params:
+            llm_params = {}
+        if model:
+            llm_params["model"] = model
+        if not llm_params.get("max_tokens"):
+            llm_params["max_tokens"] = 1000
 
         system_prompt = None
         # Filter out the system message and update the messages list
