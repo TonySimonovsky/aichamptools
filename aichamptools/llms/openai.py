@@ -62,7 +62,7 @@ class LLMOpenAI(LLM):
         num_tokens = len(encoding.encode(text))
         return num_tokens
 
-    def create_completion(self, llm_params=None, messages=None, model=None, output_v=0.02):
+    def create_completion(self, llm_params=None, messages=None, model=None, tools=None, output_v=0.02):
         """
 
         output_v - different output versions:
@@ -117,7 +117,7 @@ class LLMOpenAI(LLM):
 
         return llm_response
 
-    async def create_completion_async(self, llm_params, messages, output_v=0.02):
+    async def create_completion_async(self, llm_params, messages, tools=None, output_v=0.02):
         log_message(self.logger, "info", self, f"""START ASYNC""")
         log_message(self.logger, "info", self, f"""INPUT: llm_params: {llm_params}""")
         log_message(self.logger, "info", self, f"""INPUT: messages: {json.dumps(messages,indent=4)}""")
@@ -129,23 +129,32 @@ class LLMOpenAI(LLM):
             stream = await self.client_async.chat.completions.create(
                 stream=True,
                 **llm_params,
-                messages=messages
+                messages=messages,
+                tools=tools
             )
             start_time = time.time()
+            log_message(self.logger, "info", self, f"""start_time: {start_time}""")
             first_token_time = None
             async for chunk in stream:
+                log_message(self.logger, "info", self, f"""chunk: {chunk}""")
                 if chunk.choices[0].delta.content is not None:
                     if not first_token_time:
                         first_token_time = time.time()
                     content = chunk.choices[0].delta.content
                     full_content += content
                     yield {"type": "content", "data": content}
+                if chunk.choices[0].delta.tool_calls and chunk.choices[0].delta.tool_calls[0] is not None:
+                    yield {"type": "function_call", "data": chunk.choices[0].delta.tool_calls[0].function.arguments}
                 if chunk.usage:
                     usage["prompt_tokens"] = chunk.usage.prompt_tokens
                     usage["completion_tokens"] = chunk.usage.completion_tokens
                     usage["total_tokens"] = chunk.usage.total_tokens
             end_time = time.time()
+            
+            if not first_token_time:
+                first_token_time = start_time
 
+            log_message(self.logger, "info", self, f"""{first_token_time} - {start_time} - {end_time} - {start_time}""")
             time_to_1st_token = first_token_time - start_time
             llm_generation_time = end_time - start_time
 
